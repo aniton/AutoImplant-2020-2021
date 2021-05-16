@@ -2,8 +2,8 @@
 
 
 ### Contributors
-+ [Mariya Donskova]()
-+ [Alexey Shevtsov]()
-+ [Aleksandr Nevarko]()
-+ [Konstantin Soshin]()
++ [Mariya Donskova](https://github.com/maridonskova)
++ [Alexey Shevtsov](https://github.com/shevtsovalexey)
++ [Aleksandr Nevarko](https://github.com/AlexanderNevarko)
++ [Konstantin Soshin](https://github.com/SoshinK)
 + [Anita Soloveva](https://github.com/aniton)
