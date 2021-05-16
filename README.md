@@ -1,2 +1,9 @@
 # AutoImplant-2020-2021
-DL + BIA Project
+
+
+### Contributors
++ [Mariya Donskova]()
++ [Alexey Shevtsov]()
++ [Aleksandr Nevarko]()
++ [Konstantin Soshin]()
++ [Anita Soloveva](https://github.com/aniton)
