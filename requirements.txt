@@ -1,3 +1,5 @@
+scikit-image
+numpy
 deep-pipe
 nibabel
 pynrrd
