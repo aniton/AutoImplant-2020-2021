@@ -4,3 +4,4 @@ deep-pipe
 nibabel
 pynrrd
 torch
+SimpleITK
