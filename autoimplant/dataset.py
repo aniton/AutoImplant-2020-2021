@@ -12,30 +12,52 @@ from skimage.measure import label, regionprops
 
 
 class Autoimplant(Dataset):
-    def __init__(self, root: str, part: str):
+    def __init__(self, root: str, part: str, use_cache=False):
         super().__init__()
 
         assert part == 'train' or part == 'test', 'Bad dataset part. Must be `train` or `test`.'
 
         self.root = Path(root) / f'{part}set2021'
 
-    def __getitem__(self, item):
-        # TODO: add other defects; only bilateral for now
-        zone = 'bilateral'
-        complete_skull = nrrd.read(self.root / 'complete_skull' / '{:03d}.nrrd'.format(item))
-        defective_skull = nrrd.read(self.root / 'defective_skull' / zone / '{:03d}.nrrd'.format(item))
-        implant = nrrd.read(self.root / 'implant' / zone / '{:03d}.nrrd'.format(item))
+        self.use_cache = use_cache
+        self.complete_skull_cache, self.defective_skull_cache, self.implant_cache = [], [], []
 
-        sample = complete_skull, defective_skull, implant
+    def set_use_cache(self, use_cache):
+        self.use_cache = use_cache
 
-        return tuple(map(lambda x: torch.tensor(x[0], dtype=torch.float32).unsqueeze(0), sample))
+        if not self.use_cache:
+            self.complete_skull_cache, self.defective_skull_cache, self.implant_cache = [], [], []
+
+    def __getitem__(self, idx):
+        if not self.use_cache:
+            # TODO: add other defects; only bilateral for now
+            zone = 'bilateral'
+
+            complete_skull = nrrd.read(self.root / 'complete_skull' / '{:03d}.nrrd'.format(idx))[0]
+            defective_skull = nrrd.read(self.root / 'defective_skull' / zone / '{:03d}.nrrd'.format(idx))[0]
+            implant = nrrd.read(self.root / 'implant' / zone / '{:03d}.nrrd'.format(idx))[0]
+
+            def _cast_to_uint(x):
+                return torch.tensor(x, dtype=torch.uint8)
+
+            complete_skull, defective_skull, implant = map(_cast_to_uint, (complete_skull, defective_skull, implant))
+
+            self.complete_skull_cache.append(complete_skull)
+            self.defective_skull_cache.append(defective_skull)
+            self.implant_cache.append(implant)
+
+        complete_skull = self.complete_skull_cache[idx]
+        defective_skull = self.defective_skull_cache[idx]
+        implant = self.implant_cache[idx]
+
+        return tuple(map(lambda x: x.float().unsqueeze(0), (complete_skull, defective_skull, implant)))
 
     def __len__(self):
         return len(list((self.root / 'complete_skull').glob('*.nrrd')))
 
 
 def cutImplantRegion(healthy_skull_predicted, corrupted_skull):
-    '''
+    """
     Find voxel occupancy grid of skull implant
 
     Parameters
@@ -48,7 +70,7 @@ def cutImplantRegion(healthy_skull_predicted, corrupted_skull):
     Returns
     -------
         np.ndarray
-    '''
+    """
     implant = healthy_skull_predicted - corrupted_skull
     implant[implant < 0] = 0
 

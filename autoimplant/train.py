@@ -7,8 +7,7 @@ def run_epoch(model, dataloader, optimizer, criterion, device='cuda'):
     epoch_loss = 0
 
     with torch.set_grad_enabled(True):
-        for i, batch in enumerate(dataloader):
-            complete_skulls, _, _ = batch
+        for complete_skulls, _, _ in dataloader:
             complete_skulls.to(device)
 
             reconstructed_skulls = model(complete_skulls)
