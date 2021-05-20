@@ -1,7 +1,7 @@
 # AutoImplant 2020-2021
 
 
-**Team:**
+**Team members:**
 + [Mariya Donskova](https://github.com/maridonskova)
 + [Alexey Shevtsov](https://github.com/shevtsovalexey)
 + [Aleksandr Nevarko](https://github.com/AlexanderNevarko)
