@@ -1,6 +1,6 @@
 from pathlib import Path
 
-import torch
+from tqdm import tqdm
 
 import nrrd
 
@@ -8,49 +8,43 @@ from torch.utils.data import Dataset
 
 import numpy as np
 from skimage.morphology import opening
-from skimage.measure import label, regionprops
+from skimage.measure import label, regionprops, block_reduce
+
+from dpipe.im.box import mask2bounding_box, add_margin
 
 
 class Autoimplant(Dataset):
-    def __init__(self, root: str, part: str, use_cache=False):
+    def __init__(self, root: str, part: str):
         super().__init__()
 
         assert part == 'train' or part == 'test', 'Bad dataset part. Must be `train` or `test`.'
-
         self.root = Path(root) / f'{part}set2021'
 
-        self.use_cache = use_cache
-        self.complete_skull_cache, self.defective_skull_cache, self.implant_cache = [], [], []
+        self.complete_skulls, self.defective_skulls, self.complete_regions, self.defective_regions = [], [], [], []
 
-    def set_use_cache(self, use_cache):
-        self.use_cache = use_cache
+        zone = 'bilateral'  # TODO: add other defects; only bilateral for now
 
-        if not self.use_cache:
-            self.complete_skull_cache, self.defective_skull_cache, self.implant_cache = [], [], []
-
-    def __getitem__(self, idx):
-        if not self.use_cache:
-            # TODO: add other defects; only bilateral for now
-            zone = 'bilateral'
-
+        print(f'Initializing {part} dataset...\n', flush=True)
+        for idx in tqdm(range(self.__len__())):
             complete_skull = nrrd.read(self.root / 'complete_skull' / '{:03d}.nrrd'.format(idx))[0]
             defective_skull = nrrd.read(self.root / 'defective_skull' / zone / '{:03d}.nrrd'.format(idx))[0]
             implant = nrrd.read(self.root / 'implant' / zone / '{:03d}.nrrd'.format(idx))[0]
 
-            def _cast_to_uint(x):
-                return torch.tensor(x, dtype=torch.uint8)
+            box = add_margin(mask2bounding_box(implant), margin=(5, 5, 5))
+            complete_region = complete_skull[tuple([slice(start, stop) for start, stop in zip(*box)])]
+            defective_region = defective_skull[tuple([slice(start, stop) for start, stop in zip(*box)])]
 
-            complete_skull, defective_skull, implant = map(_cast_to_uint, (complete_skull, defective_skull, implant))
+            complete_skull = block_reduce(complete_skull, block_size=(8, 8, 8))
+            defective_skull = block_reduce(defective_skull, block_size=(8, 8, 8))
 
-            self.complete_skull_cache.append(complete_skull)
-            self.defective_skull_cache.append(defective_skull)
-            self.implant_cache.append(implant)
+            self.complete_skulls.append(complete_skull[None, :].astype('bool'))
+            self.defective_skulls.append(defective_skull[None, :].astype('bool'))
+            self.complete_regions.append(complete_region[None, :].astype('bool'))
+            self.defective_regions.append(defective_region[None, :].astype('bool'))
 
-        complete_skull = self.complete_skull_cache[idx]
-        defective_skull = self.defective_skull_cache[idx]
-        implant = self.implant_cache[idx]
-
-        return tuple(map(lambda x: x.float().unsqueeze(0), (complete_skull, defective_skull, implant)))
+    def __getitem__(self, idx):
+        return self.complete_skulls[idx], self.defective_skulls[idx], \
+               self.complete_regions[idx], self.defective_regions[idx]
 
     def __len__(self):
         return len(list((self.root / 'complete_skull').glob('*.nrrd')))

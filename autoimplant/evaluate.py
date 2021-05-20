@@ -5,14 +5,15 @@ from dpipe.io import save
 
 def evaluate(preds_save_path, dataloader, model, criterion, writer, device='cuda'):
     model.eval()
+    model.to(device)
 
     test_loss = 0
 
     preds_save_path.mkdir(exist_ok=True)
 
     with torch.no_grad():
-        for idx, (complete_skull, _, _) in enumerate(dataloader):
-            complete_skull.to(device)
+        for idx, (complete_skull, _, _, _) in enumerate(dataloader):
+            complete_skull = torch.tensor(complete_skull, device=device, dtype=torch.float32)
 
             reconstructed_skull = model(complete_skull)
             save(reconstructed_skull, preds_save_path / '{:03d}.nii.gz'.format(idx))
