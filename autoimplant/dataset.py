@@ -63,9 +63,9 @@ def cutImplantRegion(healthy_skull_predicted, corrupted_skull):
     Parameters
     ----------
         healthy_skull_predicted: np.ndarray
-            Vovel occupancy grid with shape NxNxN of predicted skull without hole
+            Voxel occupancy grid with shape NxNxN of predicted skull without hole
         corrupted_skull: np.ndarray
-            Vovel occupancy grid with shape NxNxN of skull with hole
+            Voxel occupancy grid with shape NxNxN of skull with hole
 
     Returns
     -------

@@ -1,13 +1,28 @@
 import torch
+from tqdm import tqdm
 
 
-def run_epoch(model, dataloader, optimizer, criterion, device='cuda'):
+def train(model_save_path, num_epochs, dataloader, model, optimizer, criterion, writer):
     model.train()
 
+    for epoch in range(num_epochs):
+        train_loss = run_epoch(dataloader, model, optimizer, criterion)
+
+        writer.add_scalar('loss/train', train_loss, epoch)
+
+        if epoch == 0:
+            dataloader.dataset.set_use_cache(use_cache=True)
+            dataloader.num_workers = 8
+
+    torch.save(model.state_dict(), model_save_path)
+    dataloader.dataset.set_use_cache(use_cache=False)
+
+
+def run_epoch(dataloader, model, optimizer, criterion, device='cuda'):
     epoch_loss = 0
 
     with torch.set_grad_enabled(True):
-        for complete_skulls, _, _ in dataloader:
+        for complete_skulls, _, _ in tqdm(dataloader):
             complete_skulls.to(device)
 
             reconstructed_skulls = model(complete_skulls)
