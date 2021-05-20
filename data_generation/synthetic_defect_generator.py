@@ -101,14 +101,16 @@ class SphericDefectGenerator(object):
 def gen_defect_wrapper(image, r1_mean=70, r1_sdev=20, r2_mean=40, r2_sdev=10,
                        min_secondary=1, max_secondary=8, offset=90):
     """
-    :param image: nrrd image.
-    :param r1_mean: Mean radius of primary sphere.
-    :param r1_sdev: STD of primary sphere radius.
-    :param r2_mean: Mean radius of secondary spheres.
-    :param r2_sdev: STD of secondary spheres radius.
-    :param min_secondary: Minimum number of secondary spheres.
-    :param max_secondary: Maximum number of secondary spheres.
-    :param offset: z offset.
+    Parameters
+    ----------
+    image: nrrd image.
+    r1_mean: Mean radius of primary sphere.
+    r1_sdev: STD of primary sphere radius.
+    r2_mean: Mean radius of secondary spheres.
+    r2_sdev: STD of secondary spheres radius.
+    min_secondary: Minimum number of secondary spheres.
+    max_secondary: Maximum number of secondary spheres.
+    offset: z offset.
     """
     defect_generator = SphericDefectGenerator(r1_mean, r1_sdev, r2_mean, r2_sdev,
                                        min_secondary, max_secondary,
@@ -193,16 +195,18 @@ def add_sph_defect(img_path, r1_mean=70, r1_sdev=20, r2_mean=40, r2_sdev=10,
                min_secondary=0, max_secondary=8, num_defects=2, offset=80,
                ext='.nrrd', ext1='.nii.gz'):
     """
-    :param img_path: input image path.
-    :param r1_mean: Mean radius of primary sphere.
-    :param r1_sdev: STD of primary sphere radius.
-    :param r2_mean: Mean radius of secondary spheres.
-    :param r2_sdev: STD of secondary spheres radius.
-    :param min_secondary: Minimum number of secondary spheres.
-    :param max_secondary: Maximum number of secondary spheres.
-    :param num_defects: How many defects to generate for each case.
-    :param ext: Image extension.
-    :param offset: z offset.
+    Parameters
+    ----------
+    img_path: input image path.
+    r1_mean: Mean radius of primary sphere.
+    r1_sdev: STD of primary sphere radius.
+    r2_mean: Mean radius of secondary spheres.
+    r2_sdev: STD of secondary spheres radius.
+    min_secondary: Minimum number of secondary spheres.
+    max_secondary: Maximum number of secondary spheres.
+    num_defects: How many defects to generate for each case.
+    ext: Image extension.
+    offset: z offset.
     """
 
     sitk_img = sitk.ReadImage(img_path)
