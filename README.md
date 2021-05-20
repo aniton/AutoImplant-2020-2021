@@ -11,7 +11,7 @@
 
 ## Installation
 
-Execute from the directory if you want the repo to be installed:
+Execute from the directory you want the repo to be installed:
 
 ```
 git clone https://github.com/aniton/AutoImplant-2020-2021.git
