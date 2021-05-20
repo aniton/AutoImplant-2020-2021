@@ -3,8 +3,10 @@ import SimpleITK as sitk
 import numpy as np
 import scipy.ndimage as sn
 import torch
+import nrrd
+import random
 
-class SphereDefectGenerator(object):
+class SphericDefectGenerator(object):
 
   #  This class generates random combinations of synthetic spherical skull defects
 
@@ -108,7 +110,7 @@ def gen_defect_wrapper(image, r1_mean=70, r1_sdev=20, r2_mean=40, r2_sdev=10,
     :param max_secondary: Maximum number of secondary spheres.
     :param offset: z offset.
     """
-    defect_generator = SphereDefectGenerator(r1_mean, r1_sdev, r2_mean, r2_sdev,
+    defect_generator = SphericDefectGenerator(r1_mean, r1_sdev, r2_mean, r2_sdev,
                                        min_secondary, max_secondary,
                                        shape=image.shape)
 
@@ -137,10 +139,59 @@ def gen_defect_wrapper(image, r1_mean=70, r1_sdev=20, r2_mean=40, r2_sdev=10,
 
     return data_defective_skull, data_implant
 
+def generate_hole_implants_for_cubic(data,cube_dim):
+	x_=data.shape[0]
+	y_=data.shape[1]
+	z_=data.shape[2]
+	full_masking=np.ones(shape=(x_,y_,z_))
+	x=random.randint(int(cube_dim/2),x_-int(cube_dim/2))
+	y=random.randint(int(cube_dim/2),y_-int(cube_dim/2))
+	z=int(z_*(3/4))
+	cube_masking=np.zeros(shape=(cube_dim,cube_dim,z_-z))
+	full_masking[x-int(cube_dim/2):x+int(cube_dim/2),y-int(cube_dim/2):y+int(cube_dim/2),z:z_]=cube_masking
+	return full_masking
 
-def add_defect(img_path, r1_mean=70, r1_sdev=20, r2_mean=40, r2_sdev=10,
+
+def add_cub_defect(img_path, size,ext='.nrrd', ext1='.nii.gz'):
+
+		temp,header=nrrd.read(img_path)
+
+		full_masking=generate_hole_implants_for_cubic(temp,size)
+		
+		c_masking_1=(full_masking==1)
+		c_masking_1=c_masking_1+1-1
+
+		defected_image=c_masking_1*temp
+
+		c_masking=(full_masking==0)
+		c_masking=c_masking+1-1
+		implants=c_masking*temp
+
+		_, file = os.path.split(img_path)
+
+		def_sk_path = os.path.join(os.path.dirname(os.path.dirname(img_path)), 'defective_skull', 'cubic',
+                               file.replace(ext, '_d' + ext)) # saving defective skull
+		implant_path = os.path.join(os.path.dirname(os.path.dirname(img_path)), 'implant', 'cubic',
+                                file.replace(ext, '_i' + ext)) # saving implant 
+		def_sk_path_nii = os.path.join(os.path.dirname(os.path.dirname(img_path)), 'defective_skull', 'cubic',
+                               file.replace(ext, '_d' + ext1)) 
+		implant_path_nii = os.path.join(os.path.dirname(os.path.dirname(img_path)), 'implant', 'cubic',
+                                file.replace(ext, '_i' + ext1)) 
+		os.makedirs(os.path.join(os.path.dirname(os.path.dirname(img_path)), 'defective_skull',  'cubic'), exist_ok=True)
+		os.makedirs(os.path.join(os.path.dirname(os.path.dirname(img_path)), 'implant',  'cubic'), exist_ok=True)
+  
+		nrrd.write(def_sk_path,defected_image[:,:,0:temp.shape[2]].astype('float64'))
+		nrrd.write(implant_path,implants[:,:,0:temp.shape[2]].astype('float64'))
+
+		defect = sitk.ReadImage(def_sk_path)
+		sitk.WriteImage(defect, def_sk_path_nii)
+		impl = sitk.ReadImage(implant_path)
+		sitk.WriteImage(impl, implant_path_nii)
+
+
+def add_sph_defect(img_path, r1_mean=70, r1_sdev=20, r2_mean=40, r2_sdev=10,
                min_secondary=0, max_secondary=8, num_defects=2, offset=80,
-               ext='.nrrd'):
+               ext='.nrrd', ext1='.nii.gz'):
     """
     :param img_path: input image path.
     :param r1_mean: Mean radius of primary sphere.
@@ -163,6 +214,11 @@ def add_defect(img_path, r1_mean=70, r1_sdev=20, r2_mean=40, r2_sdev=10,
                                file.replace(ext, '_d' + ext)) # saving defective skull
     implant_path = os.path.join(os.path.dirname(os.path.dirname(img_path)), 'implant', 'spherical',
                                 file.replace(ext, '_i' + ext)) # saving implant 
+    def_sk_path_nii = os.path.join(os.path.dirname(os.path.dirname(img_path)), 'defective_skull', 'spherical',
+                               file.replace(ext, '_d' + ext1)) 
+    implant_path_nii = os.path.join(os.path.dirname(os.path.dirname(img_path)), 'implant', 'spherical',
+                                file.replace(ext, '_i' + ext1)) 
+    
     os.makedirs(os.path.join(os.path.dirname(os.path.dirname(img_path)), 'defective_skull',  'spherical'), exist_ok=True)
     os.makedirs(os.path.join(os.path.dirname(os.path.dirname(img_path)), 'implant',  'spherical'), exist_ok=True)
     print(f'Saving defective_skull and implant for {file}')
@@ -178,16 +234,26 @@ def add_defect(img_path, r1_mean=70, r1_sdev=20, r2_mean=40, r2_sdev=10,
 
         sitk.WriteImage(skull, def_sk_path.replace('_d', f'_d{i}'))
         sitk.WriteImage(implant, implant_path.replace('_i', f'_i{i}'))
+        sitk.WriteImage(skull, def_sk_path_nii.replace('_d', f'_d{i}'))
+        sitk.WriteImage(implant, implant_path_nii.replace('_i', f'_i{i}'))
 
+def get_num(a, b, x):
+    if not a % x:
+        return random.choice(range(a, b, x))
+    else:
+        return random.choice(range(a + x - (a%x), b, x))
 
-def add_defects2folder(folder, num_defects=3, ext='.nrrd'):
+def add_defect2folder(folder, num_defects=3, ext='.nrrd', ext1 = '.nii.gz'):
     for file in os.listdir(folder):
         if not file.endswith(ext):
             continue
         path = os.path.join(folder, file)
-        add_defect(path, num_defects=num_defects, ext=ext)
+        size = get_num(1, 128, 2)
+        add_cub_defect(path, size, ext = ext, ext1 = ext1)
+        add_sph_defect(path, num_defects = num_defects, ext = ext, ext1 = ext1)
+
 
 
 if __name__ == '__main__':
     folder = './trainset2021/complete_skull'
-    add_defects2folder(folder, num_defects=1)
+    add_defect2folder(folder, num_defects=1)
