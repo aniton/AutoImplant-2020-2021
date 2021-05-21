@@ -1,3 +1,4 @@
+tqdm
 scikit-image
 numpy
 deep-pipe

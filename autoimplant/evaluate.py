@@ -1,22 +1,24 @@
-import torch
+import numpy as np
 
-from dpipe.io import save
+from dpipe.io import load, save
+from dpipe.im.metrics import dice_score, hausdorff_distance
 
 
-def evaluate(preds_save_path, dataloader, model, criterion, writer, device='cuda'):
-    model.eval()
+def evaluate(dataloader, exp_dir):
+    dice_scores, hausdorff_distances = {}, {}
 
-    test_loss = 0
+    for idx, (complete_skull, _, _, _) in zip(dataloader.dataset.ids, dataloader):
+        reconstructed_skull = load(exp_dir / 'test_predictions' / '{:03d}.npy.gz'.format(idx)) > .5
+        complete_skull = complete_skull[0].numpy()
 
-    preds_save_path.mkdir(exist_ok=True)
+        dice_scores[str(idx)] = dice_score(reconstructed_skull, complete_skull)
+        hausdorff_distances[str(idx)] = hausdorff_distance(reconstructed_skull, complete_skull)
 
-    with torch.no_grad():
-        for idx, (complete_skull, _, _) in enumerate(dataloader):
-            complete_skull.to(device)
+    test_metrics_dir = exp_dir / 'test_metrics'
+    test_metrics_dir.mkdir(exist_ok=True)
 
-            reconstructed_skull = model(complete_skull)
-            save(reconstructed_skull, preds_save_path / '{:03d}.nii.gz'.format(idx))
+    save(dice_scores, test_metrics_dir / 'dice_scores.json')
+    save(np.mean(list(dice_scores.values())), test_metrics_dir / 'mean_dice_score.json')
 
-            test_loss += criterion(reconstructed_skull, torch.max_pool3d(complete_skull, kernel_size=8)).detach().item()
-
-        writer.add_scalar('loss/test', test_loss / len(dataloader))
+    save(hausdorff_distances, test_metrics_dir / 'hausdorff_distances.json')
+    save(np.mean(list(hausdorff_distances.values())), test_metrics_dir / 'mean_hausdorff_distance.json')
