@@ -29,6 +29,6 @@ python ./data_generation/synthetic_defect_generator.py
 + Run to generate triplets (comlete_skull, defective_skull, implant), registered to another triplets (currently 10 random skulls are selected for registration):
 
 ```
-python ./data_generation/each_other_registration_10.py
+python ./data_generation/each_other_registration.py --n_triplents 10 --zone 'bilateral' 
 ```
 This script will generate 225 additional triplets (each registration takes ~ 3 min).

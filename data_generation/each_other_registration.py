@@ -9,6 +9,7 @@ import SimpleITK as sitk
 import numpy as np
 import pandas as pd
 import glob
+import argparse
 import copy
 import random
 
@@ -226,8 +227,10 @@ def prep_img_autoimpl(input_ff,  n, zone, overwrite=False):
 
 
 if __name__ == '__main__':
-    prep_img_autoimpl('./trainset2021/complete_skull', 10, 'bilateral', overwrite=False)
-    prep_img_autoimpl('./trainset2021/complete_skull', 10, 'frontoorbital', overwrite=False)
-    prep_img_autoimpl('./trainset2021/complete_skull', 10, 'parietotemporal', overwrite=False)
-    prep_img_autoimpl('./trainset2021/complete_skull', 10, 'random_1', overwrite=False)
-    prep_img_autoimpl('./trainset2021/complete_skull', 10, 'random_2', overwrite=False)
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--n_triplents', dest='n_triplents', type=int)
+    parser.add_argument('--zone', dest='zone', type=str)
+
+    args = parser.parse_args()
+
+    prep_img_autoimpl('./trainset2021/complete_skull', args.n_triplents, args.zone, overwrite=False)
