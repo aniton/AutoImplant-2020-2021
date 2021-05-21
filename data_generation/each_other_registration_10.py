@@ -146,15 +146,12 @@ class Preprocessor:
 
         if save_path:
             self.save_path = save_path
-       #     veri_folder(self.save_path)
-
 
     def save_file(self):
 
         if self.save_path is None:
             return None
 
-    #    veri_folder(self.save_path)
         save_path_image = self.save_path
         sitk.WriteImage(self.image, save_path_image)  
         print("\n   Preprocessed image saved in {}.".format(save_path_image))
@@ -190,8 +187,6 @@ class Preprocessor:
                                             self.save_path,
                                             img_interp,
                                             transformation)
-
-
 
     def keep_largest_cc(self, apply=True):
         if apply:
