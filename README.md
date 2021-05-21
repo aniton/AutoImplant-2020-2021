@@ -26,7 +26,7 @@ pip install -e .
 ```
 python ./data_generation/synthetic_defect_generator.py
 ```
-+ Run to generate triplets (comlete_skull, defective_skull, implant), registered to another triplets (currently 10 random triplets are selected):
++ Run to generate triplets (comlete_skull, defective_skull, implant), registered to another triplets (currently 10 random skulls are selected for registration):
 
 ```
 python ./data_generation/each_other_registration_10.py
