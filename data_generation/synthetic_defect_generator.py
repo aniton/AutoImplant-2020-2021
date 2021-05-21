@@ -257,7 +257,6 @@ def add_defect2folder(folder, num_defects=3, ext='.nrrd', ext1 = '.nii.gz'):
         add_sph_defect(path, num_defects = num_defects, ext = ext, ext1 = ext1)
 
 
-
 if __name__ == '__main__':
     folder = './trainset2021/complete_skull'
     add_defect2folder(folder, num_defects=1)
