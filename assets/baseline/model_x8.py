@@ -4,38 +4,52 @@ from torch.utils.data import DataLoader
 
 import torch
 import torch.nn as nn
-from torch.utils.tensorboard import SummaryWriter
+
+import numpy as np
 
 from autoimplant.dataset import Autoimplant
+from autoimplant.evaluate import evaluate
 from autoimplant.model import ModelX8
 from autoimplant.train import train
-from autoimplant.evaluate import evaluate
+from autoimplant.predict import predict
 
-from dpipe.batch_iter.pipeline import combine_pad
+from dpipe.io import save
+from dpipe.split import train_val_test_split
+
+seed = 42
+np.random.seed(seed)
+torch.manual_seed(seed)
+torch.backends.cudnn.deterministic = True
 
 
-def run_experiment(exp_name,
-                   exp_root='/gpfs/gpfs0/a.shevtsov/experiments/autoimplant/', data_root='/gpfs/gpfs0/a.shevtsov/data/',
-                   num_epochs=10, batch_size=25, lr=1e-3):
-    exp_dir = Path(exp_root) / exp_name
-    exp_dir.mkdir()
+def run_experiment(exp_name, exp_root='/gpfs/gpfs0/a.shevtsov/experiments/autoimplant/',
+                   data_root='/gpfs/gpfs0/a.shevtsov/data/trainset2021',
+                   num_epochs=10, batch_size=1, lr=1e-3):
+    exp_root, data_root = map(Path, (exp_root, data_root))
 
-    torch.cuda.manual_seed(42)
+    exp_dir = exp_root / exp_name
+    exp_dir.mkdir(exist_ok=True)
 
-    train_dataset = Autoimplant(root=data_root, part='train')
-    train_dataloader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True, collate_fn=combine_pad)
-    test_dataset = Autoimplant(root=data_root, part='test')
-    test_dataloader = DataLoader(test_dataset, batch_size=1, shuffle=False)
+    n_samples = len(list((data_root / 'complete_skull').glob('*.nrrd')))
+    train_ids, val_ids, test_ids = train_val_test_split(np.arange(n_samples), val_size=10, n_splits=3)[0]
+    save(train_ids, exp_root / 'train_ids.json')
+    save(val_ids, exp_root / 'val_ids.json')
+    save(test_ids, exp_root / 'test_ids.json')
+
+    print('Initializing dataloaders...\n', flush=True)
+    train_dataloader = DataLoader(Autoimplant(root=data_root, ids=train_ids), batch_size=batch_size, shuffle=True)
+    val_dataloader = DataLoader(Autoimplant(root=data_root, ids=val_ids), batch_size=1, shuffle=False)
+    test_dataloader = DataLoader(Autoimplant(root=data_root, ids=test_ids), batch_size=1, shuffle=False)
 
     model_x8 = ModelX8()
-
     optimizer = torch.optim.Adam(model_x8.parameters(), lr=lr)
     criterion = nn.BCELoss()
 
-    logs_dir = exp_dir / 'logs'
-    logs_dir.mkdir()
-    writer = SummaryWriter(logs_dir)
+    print('Training the model...\n', flush=True)
+    train(num_epochs, (train_dataloader, val_dataloader), model_x8, optimizer, criterion, exp_dir)
 
-    train(exp_dir / 'model_x8.pth', num_epochs, train_dataloader, model_x8, optimizer, criterion, writer)
+    print('Making predictions...\n', flush=True)
+    predict(test_dataloader, model_x8, exp_dir)
 
-    evaluate(exp_dir / 'predictions', test_dataloader, model_x8, criterion, writer)
+    print('Evaluating predictions...\n', flush=True)
+    evaluate(test_dataloader, exp_dir)

@@ -1,31 +1,31 @@
 from pathlib import Path
 
-from tqdm import tqdm
+from typing import Union
+
+import numpy as np
+from torch.utils.data import Dataset
 
 import nrrd
 
-from torch.utils.data import Dataset
-
-import numpy as np
 from skimage.morphology import opening
 from skimage.measure import label, regionprops, block_reduce
 
 from dpipe.im.box import mask2bounding_box, add_margin
 
+PathLike = Union[Path, str]
+
 
 class Autoimplant(Dataset):
-    def __init__(self, root: str, part: str):
+    def __init__(self, root: PathLike, ids: list):
         super().__init__()
 
-        assert part == 'train' or part == 'test', 'Bad dataset part. Must be `train` or `test`.'
-        self.root = Path(root) / f'{part}set2021'
-
+        self.root = root
+        self.ids = ids
         self.complete_skulls, self.defective_skulls, self.complete_regions, self.defective_regions = [], [], [], []
 
         zone = 'bilateral'  # TODO: add other defects; only bilateral for now
 
-        print(f'Initializing {part} dataset...\n', flush=True)
-        for idx in tqdm(range(self.__len__())):
+        for idx in self.ids:
             complete_skull = nrrd.read(self.root / 'complete_skull' / '{:03d}.nrrd'.format(idx))[0]
             defective_skull = nrrd.read(self.root / 'defective_skull' / zone / '{:03d}.nrrd'.format(idx))[0]
             implant = nrrd.read(self.root / 'implant' / zone / '{:03d}.nrrd'.format(idx))[0]
@@ -34,8 +34,8 @@ class Autoimplant(Dataset):
             complete_region = complete_skull[tuple([slice(start, stop) for start, stop in zip(*box)])]
             defective_region = defective_skull[tuple([slice(start, stop) for start, stop in zip(*box)])]
 
-            complete_skull = block_reduce(complete_skull, block_size=(8, 8, 8))
-            defective_skull = block_reduce(defective_skull, block_size=(8, 8, 8))
+            complete_skull = block_reduce(complete_skull, block_size=(8, 8, 8), func=np.max)
+            defective_skull = block_reduce(defective_skull, block_size=(8, 8, 8), func=np.max)
 
             self.complete_skulls.append(complete_skull[None, :].astype('bool'))
             self.defective_skulls.append(defective_skull[None, :].astype('bool'))
@@ -47,7 +47,7 @@ class Autoimplant(Dataset):
                self.complete_regions[idx], self.defective_regions[idx]
 
     def __len__(self):
-        return len(list((self.root / 'complete_skull').glob('*.nrrd')))
+        return len(self.ids)
 
 
 def cutImplantRegion(healthy_skull_predicted, corrupted_skull):
