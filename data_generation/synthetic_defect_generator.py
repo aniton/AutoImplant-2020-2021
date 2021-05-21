@@ -252,7 +252,7 @@ def add_defect2folder(folder, num_defects=3, ext='.nrrd', ext1 = '.nii.gz'):
         if not file.endswith(ext):
             continue
         path = os.path.join(folder, file)
-        size = get_num(1, 128, 2)
+        size = get_num(2, 128, 2)
         add_cub_defect(path, size, ext = ext, ext1 = ext1)
         add_sph_defect(path, num_defects = num_defects, ext = ext, ext1 = ext1)
 
