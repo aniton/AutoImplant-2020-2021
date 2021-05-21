@@ -24,5 +24,5 @@ pip install -e .
 Run to generate skulls with synthetic (cubic and spheric) defects of different size and localisation (one for each complete_skull):
 
 ```
-python ./data_generation/
+python ./data_generation/synthetic_defect_generator.py
 ```
