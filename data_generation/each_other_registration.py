@@ -228,9 +228,9 @@ def prep_img_autoimpl(input_ff,  n, zone, overwrite=False):
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
-    parser.add_argument('--n_triplents', dest='n_triplents', type=int)
+    parser.add_argument('--n_triplets', dest='n_triplets', type=int)
     parser.add_argument('--zone', dest='zone', type=str)
 
     args = parser.parse_args()
 
-    prep_img_autoimpl('./trainset2021/complete_skull', args.n_triplents, args.zone, overwrite=False)
+    prep_img_autoimpl('./trainset2021/complete_skull', args.n_triplets, args.zone, overwrite=False)
