@@ -60,7 +60,6 @@ def get_largest_cc(image):
 
     return output
 
-
 def register_ant(moving_img_path, fixed_image, out_image=None,
                     mat_path=None, transformation='QuickRigid',
                     overwrite=False):
