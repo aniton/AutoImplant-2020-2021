@@ -19,7 +19,7 @@ cd AutoImplant-2020-2021
 pip install -e .
 ```
 
-## Data Generation
+### Data Generation
 
 + Run to generate skulls with synthetic (cubic and spheric) defects of different size and localisation (one for each complete_skull):
 
