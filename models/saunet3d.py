@@ -146,10 +146,10 @@ class SAUnet3s(nn.Module):
         edge_out = self.sigmoid(ss)
 
         ### Canny Edge
-        # TODO
         im_arr = np.mean(x.cpu().numpy(), axis=1).astype(np.uint8)
-        canny = np.zeros((x_size[0], 1, x_size[2], x_size[3]))
+        canny = np.zeros((x_size[0], 1, x_size[2], x_size[3], x_size[4]))
         for i in range(x_size[0]):
+            # TODO: Use 3d canny edge detector
             canny[i] = cv2.Canny(im_arr[i], 10, 100)
         canny = torch.from_numpy(canny).cuda().float()
         ### End Canny Edge
