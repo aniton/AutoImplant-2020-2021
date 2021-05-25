@@ -244,15 +244,5 @@ def add_defect2folder(folder, num_defects=3, ext='.nrrd'):
 
 
 if __name__ == '__main__':
-<<<<<<< HEAD
     folder = './trainset2021/complete_skull'
     add_defect2folder(folder, num_defects=1)
-=======
-    parser = argparse.ArgumentParser()
-    parser.add_argument('--n_triplets', dest='n_triplets', type=int)
-    parser.add_argument('--zone', dest='zone', type=str)
-
-    args = parser.parse_args()
-
-    prep_img_autoimpl('./trainset2021/complete_skull', args.n_triplets, args.zone, overwrite=False)
->>>>>>> db1c9ca7688b1e0fd9efebcd9281e182f048211b
