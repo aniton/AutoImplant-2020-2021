@@ -6,10 +6,10 @@ import numpy as np
 import math
 import cv2
 
-from .attention_blocks3d import DualAttBlock3d
-from .gsc3d import GatedSpatialConv3d
-from .resnets_3d.models.densenet import DenseNet, generate_model
-from .resnets_3d.models.resnet import BasicBlock as ResBlock
+from attention_blocks3d import DualAttBlock3d
+from gsc3d import GatedSpatialConv3d
+from resnets_3d.models.densenet import DenseNet, generate_model
+from resnets_3d.models.resnet import BasicBlock as ResBlock
 
 
 def conv3x3_bn_relu(in_planes, out_planes, stride=1):
@@ -54,15 +54,15 @@ class DecoderBlock3d(nn.Module):
         return self.block(x)
 
 
-class SAUnet3s(nn.Module):
+class SAUnet3d(nn.Module):
     def __init__(self, num_classes=2, 
                  num_filters=32, 
                  pretrained=True, 
                  is_deconv=True):
-        super(SAUnet3s, self).__init__()
+        super(SAUnet3d, self).__init__()
         self.num_classes = num_classes
         self.pool = nn.MaxPool3d(2, 2)
-        self.encoder = generate_model(model_depth=121)
+        self.encoder = generate_model(model_depth=121, n_input_channels=1)
         
         self.relu = nn.ReLU(inplace=True)
         self.sigmoid = nn.Sigmoid()
@@ -112,7 +112,7 @@ class SAUnet3s(nn.Module):
         self.dec0 = conv3x3_bn_relu(num_filters*2, num_filters)
 
         self.final = nn.Conv3d(num_filters, self.num_classes, kernel_size=1)
-# ------------------------------------------------------------------------------------
+
     def forward(self, x):
         x_size = x.size()
 
@@ -125,24 +125,25 @@ class SAUnet3s(nn.Module):
 
         #Shape Stream
         ss = F.interpolate(self.d0(conv2), x_size[2:],
-                            mode='bilinear', align_corners=True)
+                            mode='trilinear', align_corners=True)
         ss = self.res1(ss)
         c3 = F.interpolate(self.c3(conv3), x_size[2:],
-                            mode='bilinear', align_corners=True)
+                            mode='trilinear', align_corners=True)
         ss = self.d1(ss)
+# ------------------------------------------------------------------------------------
         ss = self.gate1(ss, c3)
         ss = self.res2(ss)
         ss = self.d2(ss)
         c4 = F.interpolate(self.c4(conv4), x_size[2:],
-                            mode='bilinear', align_corners=True)
+                            mode='trilinear', align_corners=True)
         ss = self.gate2(ss, c4)
         ss = self.res3(ss)
         ss = self.d3(ss)
         c5 = F.interpolate(self.c5(conv5), x_size[2:],
-                            mode='bilinear', align_corners=True)
+                            mode='trilinear', align_corners=True)
         ss = self.gate3(ss, c5)
         ss = self.fuse(ss)
-        ss = F.interpolate(ss, x_size[2:], mode='bilinear', align_corners=True)
+        ss = F.interpolate(ss, x_size[2:], mode='trilinear', align_corners=True)
         edge_out = self.sigmoid(ss)
 
         ### Canny Edge
@@ -160,9 +161,9 @@ class SAUnet3s(nn.Module):
         edge = self.expand(acts)
 
         #Decoder
-        conv2 = F.interpolate(conv2, scale_factor=2, mode='bilinear', align_corners=True)
-        conv3 = F.interpolate(conv3, scale_factor=2, mode='bilinear', align_corners=True)
-        conv4 = F.interpolate(conv4, scale_factor=2, mode='bilinear', align_corners=True)
+        conv2 = F.interpolate(conv2, scale_factor=2, mode='trilinear', align_corners=True)
+        conv3 = F.interpolate(conv3, scale_factor=2, mode='trilinear', align_corners=True)
+        conv4 = F.interpolate(conv4, scale_factor=2, mode='trilinear', align_corners=True)
 
         center = self.center(self.pool(conv5))
         dec5, _ = self.dec5([center, conv5])
@@ -174,7 +175,7 @@ class SAUnet3s(nn.Module):
 
         x_out = self.final(dec0)
 
-        att = F.interpolate(att, scale_factor=4, mode='bilinear', align_corners=True)
+        att = F.interpolate(att, scale_factor=4, mode='trilinear', align_corners=True)
 
         return x_out, edge_out #, att
 

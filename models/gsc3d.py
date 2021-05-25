@@ -2,7 +2,7 @@ import torch.nn as nn
 import torch
 import torch.nn.functional as F
 from torch.nn.modules.conv import _ConvNd
-from torch.nn.modules.utils import _pair
+from torch.nn.modules.utils import _triple
 
 
 class GatedSpatialConv3d(_ConvNd):
@@ -20,13 +20,13 @@ class GatedSpatialConv3d(_ConvNd):
         :param bias:
         """
 
-        kernel_size = _pair(kernel_size)
-        stride = _pair(stride)
-        padding = _pair(padding)
-        dilation = _pair(dilation)
+        kernel_size = _triple(kernel_size)
+        stride = _triple(stride)
+        padding = _triple(padding)
+        dilation = _triple(dilation)
         super(GatedSpatialConv3d, self).__init__(
             in_channels, out_channels, kernel_size, stride, padding, dilation,
-            False, _pair(0), groups, bias, 'zeros')
+            False, _triple(0), groups, bias, 'zeros')
         self._gate_conv = nn.Sequential(
             nn.BatchNorm3d(in_channels+1),
             nn.Conv3d(in_channels+1, in_channels+1, 1),
