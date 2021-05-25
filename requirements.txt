@@ -7,3 +7,4 @@ pynrrd
 torch
 SimpleITK
 antspyx
+opencv-python
