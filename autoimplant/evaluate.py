@@ -2,17 +2,6 @@ import numpy as np
 
 from dpipe.io import load, save
 from dpipe.im.metrics import dice_score, hausdorff_distance
-
-'''
-Calculation of similarity between two binary volumes. Includes:
-- Dice Similarity Score (DSC)
-- Border Dice Similarity Score (BDSC)
-- Hausdorff Distance (HD)
-- 95% Hausdorff Distance (HD95)
-credits: MedPy http://pydoc.net/MedPy/0.2.2/medpy.metric.binary/
-'''
-
-
 import numpy
 from scipy.ndimage import _ni_support
 from scipy.ndimage.morphology import distance_transform_edt, binary_erosion,\
@@ -240,17 +229,23 @@ def bdc(implant_1, implant_2, defective_skull, voxelspacing=None, distance=10):
 
 
 def evaluate(exp_name, dataloader, exp_dir):
-    dice_scores, hausdorff_distances = {}, {}
+    dice_scores, hausdorff_distances, border_dice_scores = {}, {}, {}
 
     for idx, (complete_skull, _, complete_region, _) in zip(dataloader.dataset.ids, dataloader):
         reconstructed = load(exp_dir / 'test_predictions' / '{:03d}.npy.gz'.format(idx)) > .5
         complete = complete_skull if exp_name == 'model_x8' else complete_region
         complete = complete[0].numpy()
 
+        defective_skull = defective_skull[0].numpy()
+
         #dice_scores[str(idx)] = dice_score(reconstructed, complete)
         #hausdorff_distances[str(idx)] = hausdorff_distance(reconstructed, complete)
+
         dice_scores[str(idx)] = dc(reconstructed, complete)
         hausdorff_distances[str(idx)] = hd(reconstructed, complete)
+        if 'implant' in locals():
+            border_dice_scores[str(idx)] = bdc(reconstructed, complete, implant)
+
 
     test_metrics_dir = exp_dir / 'test_metrics'
     test_metrics_dir.mkdir(exist_ok=True)
