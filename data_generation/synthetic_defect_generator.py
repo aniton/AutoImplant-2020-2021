@@ -154,7 +154,7 @@ def generate_hole_implants_for_cubic(data,cube_dim):
 	return full_masking
 
 
-def add_cub_defect(img_path, size,ext='.nrrd', ext1='.nii.gz'):
+def add_cub_defect(img_path, size,ext='.nrrd'):
 
 		temp,header=nrrd.read(img_path)
 
@@ -172,28 +172,19 @@ def add_cub_defect(img_path, size,ext='.nrrd', ext1='.nii.gz'):
 		_, file = os.path.split(img_path)
 
 		def_sk_path = os.path.join(os.path.dirname(os.path.dirname(img_path)), 'defective_skull', 'cubic',
-                               file.replace(ext, '_d' + ext)) # saving defective skull
+                               file) # saving defective skull
 		implant_path = os.path.join(os.path.dirname(os.path.dirname(img_path)), 'implant', 'cubic',
-                                file.replace(ext, '_i' + ext)) # saving implant 
-		def_sk_path_nii = os.path.join(os.path.dirname(os.path.dirname(img_path)), 'defective_skull', 'cubic',
-                               file.replace(ext, '_d' + ext1)) 
-		implant_path_nii = os.path.join(os.path.dirname(os.path.dirname(img_path)), 'implant', 'cubic',
-                                file.replace(ext, '_i' + ext1)) 
+                                file) # saving implant 
 		os.makedirs(os.path.join(os.path.dirname(os.path.dirname(img_path)), 'defective_skull',  'cubic'), exist_ok=True)
 		os.makedirs(os.path.join(os.path.dirname(os.path.dirname(img_path)), 'implant',  'cubic'), exist_ok=True)
   
 		nrrd.write(def_sk_path,defected_image[:,:,0:temp.shape[2]].astype('float64'))
 		nrrd.write(implant_path,implants[:,:,0:temp.shape[2]].astype('float64'))
 
-		defect = sitk.ReadImage(def_sk_path)
-		sitk.WriteImage(defect, def_sk_path_nii)
-		impl = sitk.ReadImage(implant_path)
-		sitk.WriteImage(impl, implant_path_nii)
-
-
+	
 def add_sph_defect(img_path, r1_mean=70, r1_sdev=20, r2_mean=40, r2_sdev=10,
                min_secondary=0, max_secondary=8, num_defects=2, offset=80,
-               ext='.nrrd', ext1='.nii.gz'):
+               ext='.nrrd'):
     """
     Parameters
     ----------
@@ -218,10 +209,6 @@ def add_sph_defect(img_path, r1_mean=70, r1_sdev=20, r2_mean=40, r2_sdev=10,
                                file.replace(ext, '_d' + ext)) # saving defective skull
     implant_path = os.path.join(os.path.dirname(os.path.dirname(img_path)), 'implant', 'spherical',
                                 file.replace(ext, '_i' + ext)) # saving implant 
-    def_sk_path_nii = os.path.join(os.path.dirname(os.path.dirname(img_path)), 'defective_skull', 'spherical',
-                               file.replace(ext, '_d' + ext1)) 
-    implant_path_nii = os.path.join(os.path.dirname(os.path.dirname(img_path)), 'implant', 'spherical',
-                                file.replace(ext, '_i' + ext1)) 
     
     os.makedirs(os.path.join(os.path.dirname(os.path.dirname(img_path)), 'defective_skull',  'spherical'), exist_ok=True)
     os.makedirs(os.path.join(os.path.dirname(os.path.dirname(img_path)), 'implant',  'spherical'), exist_ok=True)
@@ -235,11 +222,13 @@ def add_sph_defect(img_path, r1_mean=70, r1_sdev=20, r2_mean=40, r2_sdev=10,
         implant = sitk.GetImageFromArray(implant)
         skull.CopyInformation(sitk_img)
         implant.CopyInformation(sitk_img)
+        if i == 0:
+              sitk.WriteImage(skull, def_sk_path.replace('_d', ''))
+              sitk.WriteImage(implant, implant_path.replace('_i', ''))
+        else:
+              sitk.WriteImage(skull, def_sk_path.replace('_d', f'{i}'))
+              sitk.WriteImage(implant, implant_path.replace('_i', f'{i}'))
 
-        sitk.WriteImage(skull, def_sk_path.replace('_d', f'_d{i}'))
-        sitk.WriteImage(implant, implant_path.replace('_i', f'_i{i}'))
-        sitk.WriteImage(skull, def_sk_path_nii.replace('_d', f'_d{i}'))
-        sitk.WriteImage(implant, implant_path_nii.replace('_i', f'_i{i}'))
 
 def get_num(a, b, x):
     if not a % x:
@@ -247,14 +236,14 @@ def get_num(a, b, x):
     else:
         return random.choice(range(a + x - (a%x), b, x))
 
-def add_defect2folder(folder, num_defects=3, ext='.nrrd', ext1 = '.nii.gz'):
+def add_defect2folder(folder, num_defects=3, ext='.nrrd'):
     for file in os.listdir(folder):
         if not file.endswith(ext):
             continue
         path = os.path.join(folder, file)
         size = get_num(2, 128, 2)
-        add_cub_defect(path, size, ext = ext, ext1 = ext1)
-        add_sph_defect(path, num_defects = num_defects, ext = ext, ext1 = ext1)
+        add_cub_defect(path, size, ext = ext)
+        add_sph_defect(path, num_defects = num_defects, ext = ext)
 
 
 if __name__ == '__main__':

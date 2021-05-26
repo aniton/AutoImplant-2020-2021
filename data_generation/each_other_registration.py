@@ -85,13 +85,13 @@ def register_ants_sitk(moving_image, fixed_image=None, mat_save_path=None, save_
                        transformation="QuickRigid", interp="nearestNeighbor",
                        mat_to_apply=None, reference=None):
   
-    mv_img = tempfile.NamedTemporaryFile(suffix='.nii.gz', delete=False)
+    mv_img = tempfile.NamedTemporaryFile(suffix='.nrrd', delete=False)
     mv_img_path = mv_img.name
 
     sitk.WriteImage(moving_image, mv_img_path)
     
     if fixed_image and type(fixed_image) is not str:
-        fx_img = tempfile.NamedTemporaryFile(suffix='.nii.gz', delete=False)
+        fx_img = tempfile.NamedTemporaryFile(suffix='.nrrd', delete=False)
         fx_img_path = fx_img.name
         sitk.WriteImage(fixed_image, fx_img_path)
     elif fixed_image:
@@ -174,7 +174,7 @@ class Preprocessor:
             mat_path = os.path.join(
                 (self.save_path if os.path.isdir(self.save_path) else
                  os.path.split(self.save_path)[0]),
-                os.path.split(self.image_path)[1].replace('nii.gz', '') + "_reg.mat"
+                os.path.split(self.image_path)[1].replace('nrrd', '') + "_reg.mat"
             )
             print(f"Transformation will be saved in {mat_path}")
 
@@ -211,15 +211,15 @@ def prep_image(image_path=None, output_ff=None,
 
 
 def prep_img_autoimpl(input_ff,  n, zone, overwrite=False):
-    skulls = glob.glob(f"{input_ff}/*.nii.gz")
+    skulls = glob.glob(f"{input_ff}/*.nrrd")
     cases1 = sorted([os.path.basename(s).split(".")[0] for s in random.sample(skulls, n)])
     cases2 = copy.copy(cases1)
     for i, case1 in enumerate(cases1):
         for case2 in cases2[(i+1):]:
             for name in (f"defective_skull/{zone}", f"implant/{zone}", "complete_skull"):  
-                  fixed = f'./trainset2021/{name}/{case1}.nii.gz'
-                  moving = f'./trainset2021/{name}/{case2}.nii.gz'
-                  output_ff = f'./trainset2021/{name}/{case2}_to_{case1}.nii.gz'
+                  fixed = f'./trainset2021/{name}/{case1}.nrrd'
+                  moving = f'./trainset2021/{name}/{case2}.nrrd'
+                  output_ff = f'./trainset2021/{name}/{case2}_to_{case1}.nrrd'
                   prep_image(image_path = moving, output_ff = output_ff, 
                            clip_intensity_values = None, target_spacing = None,
                            fixed_size_pad = None, threshold = False, largest_cc = True, register = True,
@@ -232,5 +232,4 @@ if __name__ == '__main__':
     parser.add_argument('--zone', dest='zone', type=str)
 
     args = parser.parse_args()
-
     prep_img_autoimpl('./trainset2021/complete_skull', args.n_triplets, args.zone, overwrite=False)
