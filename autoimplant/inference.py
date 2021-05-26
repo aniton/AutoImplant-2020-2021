@@ -2,7 +2,10 @@ import torch
 import numpy as np
 from skimage.measure import block_reduce
 from autoimplant.model.baseline import ModelX8, LowRes
-from autoimplant.model.dataset import cutImplantRegion, getBoundingBox
+from autoimplant.dataset import cutImplantRegion, getBoundingBox
+
+def _np_ar(tensor):
+    return tensor.detach().cpu().numpy() 
 
 def inferenceSkull(low_res_model, high_res_model, skull_high_res, device, downsample_scale=8, padding=10):
     low_res_model.eval()
@@ -11,7 +14,7 @@ def inferenceSkull(low_res_model, high_res_model, skull_high_res, device, downsa
     skull_low_res = block_reduce(skull_high_res, block_size=(downsample_scale, downsample_scale, downsample_scale), func=np.max)
     with torch.set_grad_enabled(False):
         pred_skull_low_res = low_res_model(torch.unsqueeze(skull_low_res, 0))[0]
-        implant_low_res = cutImplantRegion(skull_low_res, pred_skull_low_res)
+        implant_low_res = cutImplantRegion(_np_ar(skull_low_res), _np_ar(pred_skull_low_res))
         bbox = getBoundingBox(implant_low_res)
 
         bbox *= downsample_scale
@@ -29,6 +32,6 @@ def inferenceSkull(low_res_model, high_res_model, skull_high_res, device, downsa
 
         return region_pred_high_res
 
-        
+
             
 
