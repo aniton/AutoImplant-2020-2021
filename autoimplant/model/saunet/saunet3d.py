@@ -1,15 +1,12 @@
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-import torchvision
-import numpy as np
 import math
-import cv2
 
-from .attention_blocks3d import DualAttBlock3d
-from .gsc3d import GatedSpatialConv3d
-from .resnets_3d.models.densenet import DenseNet, generate_model
-from .resnets_3d.models.resnet import BasicBlock as ResBlock
+from autoimplant.model.saunet.attention_blocks3d import DualAttBlock3d
+from autoimplant.model.saunet.gsc3d import GatedSpatialConv3d
+from resnets_3d.models.densenet import generate_model
+from resnets_3d.models.resnet import BasicBlock as ResBlock
 
 
 def conv3x3_bn_relu(in_planes, out_planes, stride=1):
@@ -123,7 +120,6 @@ class SAUnet3d(nn.Module):
         conv4 = self.conv4t(self.conv4(conv3))
         conv5 = self.conv5(conv4)
         #Shape Stream
-        import ipdb; ipdb.set_trace()
         ss = F.interpolate(self.d0(conv2), x_size[2:],
                             mode='trilinear', align_corners=True)
         ss = self.res1(ss)
