@@ -231,12 +231,12 @@ def bdc(implant_1, implant_2, defective_skull, voxelspacing=None, distance=10):
 def evaluate(exp_name, dataloader, exp_dir):
     dice_scores, hausdorff_distances, border_dice_scores = {}, {}, {}
 
-    for idx, (complete_skull, _, complete_region, _) in zip(dataloader.dataset.ids, dataloader):
+    for idx, (complete_skull, defective_skull, complete_region, _) in zip(dataloader.dataset.ids, dataloader):
         reconstructed = load(exp_dir / 'test_predictions' / '{:03d}.npy.gz'.format(idx)) > .5
         complete = complete_skull if exp_name == 'model_x8' else complete_region
         complete = complete[0].numpy()
 
-        defective_skull = defective_skull[0].numpy()
+        defective_ = defective_skull[0].numpy()
 
         #dice_scores[str(idx)] = dice_score(reconstructed, complete)
         #hausdorff_distances[str(idx)] = hausdorff_distance(reconstructed, complete)
@@ -245,6 +245,8 @@ def evaluate(exp_name, dataloader, exp_dir):
         hausdorff_distances[str(idx)] = hd(reconstructed, complete)
         if 'implant' in locals():
             border_dice_scores[str(idx)] = bdc(reconstructed, complete, implant)
+        else:
+            border_dice_scores[str(idx)] = bdc(reconstructed, complete, complete - defective_)
 
 
     test_metrics_dir = exp_dir / 'test_metrics'
