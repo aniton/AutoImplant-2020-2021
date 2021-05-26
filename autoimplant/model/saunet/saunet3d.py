@@ -1,14 +1,11 @@
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-import torchvision
-import numpy as np
 import math
-import cv2
 
-from attention_blocks3d import DualAttBlock3d
-from gsc3d import GatedSpatialConv3d
-from resnets_3d.models.densenet import DenseNet, generate_model
+from autoimplant.model.saunet.attention_blocks3d import DualAttBlock3d
+from autoimplant.model.saunet.gsc3d import GatedSpatialConv3d
+from resnets_3d.models.densenet import generate_model
 from resnets_3d.models.resnet import BasicBlock as ResBlock
 
 

@@ -1,3 +1,0 @@
-[submodule "autoimplant/models/resnets_3d"]
-	path = autoimplant/models/resnets_3d
-	url = https://github.com/kenshohara/3D-ResNets-PyTorch.git

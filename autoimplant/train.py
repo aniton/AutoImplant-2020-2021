@@ -6,7 +6,7 @@ from torch.utils.tensorboard import SummaryWriter
 from dpipe.im.metrics import dice_score, hausdorff_distance
 
 
-def train(num_epochs, dataloaders, model, optimizer, criterion, exp_dir, device='cuda'):
+def train(exp_name, num_epochs, dataloaders, model, optimizer, criterion, exp_dir, device='cuda'):
     model.to(device)
 
     logs_dir = exp_dir / 'logs'
@@ -14,16 +14,16 @@ def train(num_epochs, dataloaders, model, optimizer, criterion, exp_dir, device=
     writer = SummaryWriter(logs_dir)
 
     for epoch in range(num_epochs):
-        train_loss, dice_score_, hausdorff_distance_ = run_epoch(dataloaders, model, optimizer, criterion, device)
+        loss, dice_score_, hausdorff_distance_ = run_epoch(exp_name, dataloaders, model, optimizer, criterion, device)
 
-        writer.add_scalar('loss/train', train_loss, epoch)
+        writer.add_scalar('loss/train', loss, epoch)
         writer.add_scalar('metrics/val/dice_score', dice_score_, epoch)
         writer.add_scalar('metrics/val/hausdorff_distance', hausdorff_distance_, epoch)
 
-        torch.save(model.state_dict(), exp_dir / 'model_x8.pth')
+        torch.save(model.state_dict(), exp_dir / f'{exp_name}.pth')
 
 
-def run_epoch(dataloaders, model, optimizer, criterion, device):
+def run_epoch(exp_name, dataloaders, model, optimizer, criterion, device):
     train_dataloader, val_dataloader = dataloaders
 
     train_loss = 0
@@ -31,12 +31,13 @@ def run_epoch(dataloaders, model, optimizer, criterion, device):
 
     model.train()
     with torch.set_grad_enabled(True):
-        for complete_skulls, _, _, _ in train_dataloader:
-            complete_skulls = complete_skulls.float().to(device)
+        for complete_skulls, _, complete_regions, _ in train_dataloader:
+            complete = complete_skulls if exp_name == 'model_x8' else complete_regions
+            complete = complete.float().to(device)
 
-            reconstructed_skulls = model(complete_skulls)
+            reconstructed = model.forward(complete)
 
-            loss = criterion(reconstructed_skulls, complete_skulls)
+            loss = criterion(reconstructed, complete)
 
             loss.backward()
             optimizer.step()
@@ -46,13 +47,16 @@ def run_epoch(dataloaders, model, optimizer, criterion, device):
 
     model.eval()
     with torch.set_grad_enabled(False):
-        for complete_skull, defective_skull, _, _ in val_dataloader:
-            defective_skull = defective_skull.float().to(device)
+        for complete_skull, defective_skull, complete_region, defective_region in val_dataloader:
+            complete = complete_skull if exp_name == 'model_x8' else complete_region
+            defective = defective_skull if exp_name == 'model_x8' else defective_region
 
-            reconstructed_skull = model(defective_skull).detach().cpu().numpy() > .5
-            complete_skull = complete_skull.numpy()
+            defective = defective.float().to(device)
 
-            dice_scores.append(dice_score(reconstructed_skull, complete_skull))
-            hausdorff_distances.append(hausdorff_distance(reconstructed_skull, complete_skull))
+            reconstructed = model(defective).detach().cpu().numpy() > .5
+            complete = complete.numpy()
+
+            dice_scores.append(dice_score(reconstructed, complete))
+            hausdorff_distances.append(hausdorff_distance(reconstructed, complete))
 
     return train_loss / len(train_dataloader), np.mean(dice_scores), np.mean(hausdorff_distances)
