@@ -115,14 +115,13 @@ class SAUnet3d(nn.Module):
 
     def forward(self, x):
         x_size = x.size()
-
+        import ipdb; ipdb.set_trace()
         #Encoder
         conv1 = self.conv1(x)
         conv2 = self.conv2t(self.conv2(conv1))
         conv3 = self.conv3t(self.conv3(conv2))
         conv4 = self.conv4t(self.conv4(conv3))
         conv5 = self.conv5(conv4)
-
         #Shape Stream
         ss = F.interpolate(self.d0(conv2), x_size[2:],
                             mode='trilinear', align_corners=True)
@@ -130,7 +129,6 @@ class SAUnet3d(nn.Module):
         c3 = F.interpolate(self.c3(conv3), x_size[2:],
                             mode='trilinear', align_corners=True)
         ss = self.d1(ss)
-# ------------------------------------------------------------------------------------
         ss = self.gate1(ss, c3)
         ss = self.res2(ss)
         ss = self.d2(ss)
