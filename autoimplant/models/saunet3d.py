@@ -6,10 +6,10 @@ import numpy as np
 import math
 import cv2
 
-from attention_blocks3d import DualAttBlock3d
-from gsc3d import GatedSpatialConv3d
-from resnets_3d.models.densenet import DenseNet, generate_model
-from resnets_3d.models.resnet import BasicBlock as ResBlock
+from .attention_blocks3d import DualAttBlock3d
+from .gsc3d import GatedSpatialConv3d
+from .resnets_3d.models.densenet import DenseNet, generate_model
+from .resnets_3d.models.resnet import BasicBlock as ResBlock
 
 
 def conv3x3_bn_relu(in_planes, out_planes, stride=1):
@@ -62,7 +62,8 @@ class SAUnet3d(nn.Module):
         super(SAUnet3d, self).__init__()
         self.num_classes = num_classes
         self.pool = nn.MaxPool3d(2, 2)
-        self.encoder = generate_model(model_depth=121, n_input_channels=1)
+        self.encoder = generate_model(model_depth=121, 
+                                      n_input_channels=1)
         
         self.relu = nn.ReLU(inplace=True)
         self.sigmoid = nn.Sigmoid()
@@ -115,7 +116,6 @@ class SAUnet3d(nn.Module):
 
     def forward(self, x):
         x_size = x.size()
-        import ipdb; ipdb.set_trace()
         #Encoder
         conv1 = self.conv1(x)
         conv2 = self.conv2t(self.conv2(conv1))
@@ -123,6 +123,7 @@ class SAUnet3d(nn.Module):
         conv4 = self.conv4t(self.conv4(conv3))
         conv5 = self.conv5(conv4)
         #Shape Stream
+        import ipdb; ipdb.set_trace()
         ss = F.interpolate(self.d0(conv2), x_size[2:],
                             mode='trilinear', align_corners=True)
         ss = self.res1(ss)
