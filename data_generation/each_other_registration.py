@@ -1,248 +1,235 @@
+import argparse
+import math
 import os
+import ants
+import tempfile
+import textwrap
+from os import path as osp
 import SimpleITK as sitk
 import numpy as np
-import scipy.ndimage as sn
-import torch
-import nrrd
+import pandas as pd
+import glob
+import argparse
+import copy
 import random
 
-class SphericDefectGenerator(object):
-
-  #  This class generates random combinations of synthetic spherical skull defects
-
-    def __init__(self, r1_mean, r1_sdev, r2_mean, r2_sdev, min_sec, max_sec,
-                 elastic_alpha=300, elastic_sigma=10, shape=(512, 512, 512)):
-      
-        self.r1_mean = r1_mean
-        self.r1_sdev = r1_sdev
-        self.r2_mean = r2_mean
-        self.r2_sdev = r2_sdev
-        self.min_sec = min_sec
-        self.max_sec = max_sec
-        self.alpha = elastic_alpha
-        self.sigma = elastic_sigma
-
-        self.pregenerated_distmap = np.ones(shape)
-        self.pregenerated_distmap[
-            shape[0] // 2, shape[1] // 2, shape[2] // 2] = 0
-        self.pregenerated_distmap = sn.morphology.distance_transform_edt(
-            self.pregenerated_distmap)
-
-    def elastic_transform(self, image, random_state=None):
-        assert len(image.shape) == 2
-
-        if random_state is None:
-            random_state = np.random.RandomState(None)
-
-        shape = image.shape
-
-        dx = self.alpha * sn.filters.gaussian_filter(
-            (random_state.rand(*shape) * 2 - 1),
-            self.sigma, mode="constant", cval=0
-        )
-        dy = self.alpha * sn.filters.gaussian_filter(
-            (random_state.rand(*shape) * 2 - 1),
-            self.sigma, mode="constant", cval=0
-        )
-
-        x, y = np.meshgrid(
-            np.arange(shape[0]), np.arange(shape[1]), indexing='ij')
-        indices = np.reshape(x + dx, (-1, 1)), np.reshape(y + dy, (-1, 1))
-
-        return sn.interpolation.map_coordinates(
-            image, indices, order=1).reshape(shape)
-
-    def generate_defect(self, size):
-        distmap_crop = self.pregenerated_distmap
-
-        #  a sphere with random radius for primary defect
-        volume_1 = np.zeros(size)
-        volume_1[distmap_crop < np.random.normal(self.r1_mean,
-                                                 self.r1_sdev)] = 1
-        volume_1 = volume_1.astype(np.bool)
-
-        # surface positions on which secondary defects are added
-        volume_surface = volume_1 ^ sn.morphology.binary_erosion(volume_1)
-        surface_inds = np.where(volume_surface)
-
-        # add random number of secondary defect shapes
-        volume_2 = np.ones_like(volume_1)
-        for _ in range(np.random.randint(self.min_sec, self.max_sec)):
-            ind = np.random.randint(len(surface_inds[0] - 1))
-            volume_2[
-                surface_inds[0][ind], surface_inds[1][ind], surface_inds[2][
-                    ind]] = 0
-        volume_2 = sn.morphology.distance_transform_edt(
-            volume_2) < np.random.normal(self.r2_mean, self.r2_sdev)
-
-        # final defect shape 
-        volume = volume_1 | volume_2
-        volume = sn.morphology.binary_opening(volume, iterations=5)
-
-        # random elastic deformation in two planes
-        state = np.random.randint(512)
-        for i in range(volume.shape[0]):
-            if np.amax(volume[i, :, :]) > 0:
-                volume[i, :, :] = self.elastic_transform(
-                    volume[i, :, :].astype(np.float),
-                    random_state=np.random.RandomState(state)
-                )
-        state = np.random.randint(512)
-        for i in range(volume.shape[1]):
-            if np.amax(volume[:, i, :]) > 0:
-                volume[:, i, :] = self.elastic_transform(
-                    volume[:, i, :].astype(np.float),
-                    random_state=np.random.RandomState(state)
-                )
-
-        return volume > 0.5
-
-
-def gen_defect_wrapper(image, r1_mean=70, r1_sdev=20, r2_mean=40, r2_sdev=10,
-                       min_secondary=1, max_secondary=8, offset=90):
-    """
-    Parameters
-    ----------
-    image: nrrd image.
-    r1_mean: Mean radius of primary sphere.
-    r1_sdev: STD of primary sphere radius.
-    r2_mean: Mean radius of secondary spheres.
-    r2_sdev: STD of secondary spheres radius.
-    min_secondary: Minimum number of secondary spheres.
-    max_secondary: Maximum number of secondary spheres.
-    offset: z offset.
-    """
-    defect_generator = SphericDefectGenerator(r1_mean, r1_sdev, r2_mean, r2_sdev,
-                                       min_secondary, max_secondary,
-                                       shape=image.shape)
-
-    x_coords, y_coords, z_coords = np.where(image[:, :, offset:] > 0)
-    z_coords += offset
-
-    defect = defect_generator.generate_defect(size=image.shape)
-
-    coord_ind = np.random.randint(len(x_coords))
-    point = [x_coords[coord_ind] + np.random.randint(-32, 32),
-             y_coords[coord_ind] + np.random.randint(-32, 32),
-             z_coords[coord_ind] + np.random.randint(-32, 32)]
-    defect_shifted = sn.interpolation.shift(
-        defect, (point[0] - image.shape[0] // 2,
-                 point[1] - image.shape[1] // 2,
-                 point[2] - image.shape[2] // 2),
-        order=0)
-
-    data_defective_skull = image.clone().detach() if type(
-        image) == torch.Tensor else image.copy()
-    data_defective_skull[defect_shifted] = 0
-
-    data_implant = image.clone().detach() if type(
-        image) == torch.Tensor else image.copy()
-    data_implant[~defect_shifted] = 0
-
-    return data_defective_skull, data_implant
-
-def generate_hole_implants_for_cubic(data,cube_dim):
-	x_=data.shape[0]
-	y_=data.shape[1]
-	z_=data.shape[2]
-	full_masking=np.ones(shape=(x_,y_,z_))
-	x=random.randint(int(cube_dim/2),x_-int(cube_dim/2))
-	y=random.randint(int(cube_dim/2),y_-int(cube_dim/2))
-	z=int(z_*(3/4))
-	cube_masking=np.zeros(shape=(cube_dim,cube_dim,z_-z))
-	full_masking[x-int(cube_dim/2):x+int(cube_dim/2),y-int(cube_dim/2):y+int(cube_dim/2),z:z_]=cube_masking
-	return full_masking
-
-
-def add_cub_defect(img_path, size,ext='.nrrd'):
-
-		temp,header=nrrd.read(img_path)
-
-		full_masking=generate_hole_implants_for_cubic(temp,size)
-		
-		c_masking_1=(full_masking==1)
-		c_masking_1=c_masking_1+1-1
-
-		defected_image=c_masking_1*temp
-
-		c_masking=(full_masking==0)
-		c_masking=c_masking+1-1
-		implants=c_masking*temp
-
-		_, file = os.path.split(img_path)
-
-		def_sk_path = os.path.join(os.path.dirname(os.path.dirname(img_path)), 'defective_skull', 'cubic',
-                               file.replace(ext, '_d' + ext)) # saving defective skull
-		implant_path = os.path.join(os.path.dirname(os.path.dirname(img_path)), 'implant', 'cubic',
-                                file.replace(ext, '_i' + ext)) # saving implant 
-		os.makedirs(os.path.join(os.path.dirname(os.path.dirname(img_path)), 'defective_skull',  'cubic'), exist_ok=True)
-		os.makedirs(os.path.join(os.path.dirname(os.path.dirname(img_path)), 'implant',  'cubic'), exist_ok=True)
-  
-		nrrd.write(def_sk_path,defected_image[:,:,0:temp.shape[2]].astype('float64'))
-		nrrd.write(implant_path,implants[:,:,0:temp.shape[2]].astype('float64'))
-
-	
-def add_sph_defect(img_path, r1_mean=70, r1_sdev=20, r2_mean=40, r2_sdev=10,
-               min_secondary=0, max_secondary=8, num_defects=2, offset=80,
-               ext='.nrrd'):
-    """
-    Parameters
-    ----------
-    img_path: input image path.
-    r1_mean: Mean radius of primary sphere.
-    r1_sdev: STD of primary sphere radius.
-    r2_mean: Mean radius of secondary spheres.
-    r2_sdev: STD of secondary spheres radius.
-    min_secondary: Minimum number of secondary spheres.
-    max_secondary: Maximum number of secondary spheres.
-    num_defects: How many defects to generate for each case.
-    ext: Image extension.
-    offset: z offset.
-    """
-
-    sitk_img = sitk.ReadImage(img_path)
-    data = sitk.GetArrayFromImage(sitk_img).astype(np.uint8)
-
-    _, file = os.path.split(img_path)
-
-    def_sk_path = os.path.join(os.path.dirname(os.path.dirname(img_path)), 'defective_skull', 'spherical',
-                               file.replace(ext, '_d' + ext)) # saving defective skull
-    implant_path = os.path.join(os.path.dirname(os.path.dirname(img_path)), 'implant', 'spherical',
-                                file.replace(ext, '_i' + ext)) # saving implant 
-    
-    os.makedirs(os.path.join(os.path.dirname(os.path.dirname(img_path)), 'defective_skull',  'spherical'), exist_ok=True)
-    os.makedirs(os.path.join(os.path.dirname(os.path.dirname(img_path)), 'implant',  'spherical'), exist_ok=True)
-    print(f'Saving defective_skull and implant for {file}')
-    for i in range(num_defects):
-        skull, implant = gen_defect_wrapper(data, r1_mean, r1_sdev, r2_mean,
-                                            r2_sdev, min_secondary,
-                                            max_secondary, offset)
-
-        skull = sitk.GetImageFromArray(skull)
-        implant = sitk.GetImageFromArray(implant)
-        skull.CopyInformation(sitk_img)
-        implant.CopyInformation(sitk_img)
-
-        sitk.WriteImage(skull, def_sk_path.replace('_d', f'_d{i}'))
-        sitk.WriteImage(implant, implant_path.replace('_i', f'_i{i}'))
-
-
-def get_num(a, b, x):
-    if not a % x:
-        return random.choice(range(a, b, x))
+def veri_folder(path=None):
+    if not path:
+        return None
     else:
-        return random.choice(range(a + x - (a%x), b, x))
+        os.makedirs(path, exist_ok=True)
+        return path
 
-def add_defect2folder(folder, num_defects=3, ext='.nrrd'):
-    for file in os.listdir(folder):
-        if not file.endswith(ext):
-            continue
-        path = os.path.join(folder, file)
-        size = get_num(2, 128, 2)
-        add_cub_defect(path, size, ext = ext)
-        add_sph_defect(path, num_defects = num_defects, ext = ext)
+def get_largest_cc(image):
+
+  #  Retains only the largest connected component of a binary image
+
+    image = sitk.Cast(image, sitk.sitkUInt32)
+
+    connectedComponentFilter = sitk.ConnectedComponentImageFilter()
+    objects = connectedComponentFilter.Execute(image)
+
+    # If there is more than one connected component
+    if connectedComponentFilter.GetObjectCount() > 1:
+        objectsData = sitk.GetArrayFromImage(objects)
+
+        # Detect the largest connected component
+        maxLabel = 1
+        maxLabelCount = 0
+        for i in range(1, connectedComponentFilter.GetObjectCount() + 1):
+            componentData = objectsData[objectsData == i]
+
+            if len(componentData.flatten()) > maxLabelCount:
+                maxLabel = i
+                maxLabelCount = len(componentData.flatten())
+
+        # Remove all the values, exept the ones for the largest connected component
+
+        dataAux = np.zeros(objectsData.shape, dtype=np.uint8)
+
+        # Fuse the labels
+
+        dataAux[objectsData == maxLabel] = 1
+
+        # Save edited image
+        output = sitk.GetImageFromArray(dataAux)
+        output.SetSpacing(image.GetSpacing())
+        output.SetOrigin(image.GetOrigin())
+        output.SetDirection(image.GetDirection())
+    else:
+        output = image
+
+    return output
+
+def register_ant(moving_img_path, fixed_image, out_image=None,
+                    mat_path=None, transformation='QuickRigid',
+                    overwrite=False):
+    atlas_name = osp.split(fixed_image)[1].split(".")[0]
+    mv_img_p, mv_img_n = osp.split(moving_img_path)
+
+    if osp.exists(out_image) and not overwrite and osp.getsize(out_image) > 0:
+        print("\n  The output file already exists (skipping).")
+        return
+    else:
+        ct = ants.image_read(moving_img_path)
+        fixed = ants.image_read(fixed_image)
+        my_tx = ants.registration(fixed=fixed, moving=ct,
+                                  type_of_transform='QuickRigid')
+        transf_ct = my_tx['warpedmovout']
+        reg_transform = my_tx['fwdtransforms']
+        ants.write_transform(ants.read_transform(reg_transform[0]), mat_path)
+        ants.image_write(transf_ct, out_image)
+
+
+def register_ants_sitk(moving_image, fixed_image=None, mat_save_path=None, save_path ="",
+                       transformation="QuickRigid", interp="nearestNeighbor",
+                       mat_to_apply=None, reference=None):
+  
+    mv_img = tempfile.NamedTemporaryFile(suffix='.nrrd', delete=False)
+    mv_img_path = mv_img.name
+
+    sitk.WriteImage(moving_image, mv_img_path)
+    
+    if fixed_image and type(fixed_image) is not str:
+        fx_img = tempfile.NamedTemporaryFile(suffix='.nrrd', delete=False)
+        fx_img_path = fx_img.name
+        sitk.WriteImage(fixed_image, fx_img_path)
+    elif fixed_image:
+        fx_img_path = fixed_image
+
+    register_ant(mv_img_path, fx_img_path, save_path, mat_save_path,
+                         transformation)
+
+    ret_img = sitk.ReadImage(save_path)
+    return ret_img
+
+
+class Preprocessor:
+    def __init__(self, sitk_img=None, is_binary=False, save_path="",
+                 image_path=None):
+        self.image = sitk_img if sitk_img else None
+
+        self.image_path = ""
+        self.is_binary = is_binary
+
+        self.direction = None
+        self.origin = None
+
+        self.load_image(image_path)
+
+        if os.path.splitext(save_path)[1] == "":
+            self.save_path = veri_folder(save_path)
+        else: 
+            veri_folder(os.path.split(save_path)[0])
+            self.save_path = save_path
+
+    def load_image(self, image_path=None):
+
+        print(f"Image: {image_path}\n")
+        self.image = sitk.ReadImage(image_path) if image_path else None
+
+        self.image_path = image_path
+
+        if self.image:
+            self.direction = self.image.GetDirection()
+            self.origin = self.image.GetOrigin()
+            self.spacing = self.image.GetSpacing()
+
+    def set_filename(self, file_name=None):
+
+        if file_name:
+            self.image_path = file_name
+            return file_name
+        else:
+            return self.image_path
+
+    def set_save_path(self, save_path=None):
+
+        if save_path:
+            self.save_path = save_path
+
+    def save_file(self):
+
+        if self.save_path is None:
+            return None
+
+        save_path_image = self.save_path
+        sitk.WriteImage(self.image, save_path_image)  
+        print("\n   Preprocessed image saved in {}.".format(save_path_image))
+
+        return save_path_image
+
+
+    def register_antspy(self, fixed_im_path, save_transform=False,
+                        transformation="QuickRigid", apply=True,
+                        img_interp="nearestNeighbor"):
+        if not apply:
+            return None
+
+        print("ANTsPy Registering")
+        print(f"Fixed image: {fixed_im_path}")
+
+
+        if save_transform is not None:
+            mat_path = os.path.join(
+                (self.save_path if os.path.isdir(self.save_path) else
+                 os.path.split(self.save_path)[0]),
+                os.path.split(self.image_path)[1].replace('nrrd', '') + "_reg.mat"
+            )
+            print(f"Transformation will be saved in {mat_path}")
+
+
+        if self.image:
+            print("Registering image")
+
+            self.image = register_ants_sitk(self.image,
+                                            fixed_im_path,
+                                            mat_path,
+                                            self.save_path,
+                                            img_interp,
+                                            transformation)
+
+    def keep_largest_cc(self, apply=True):
+        if apply:
+            self.image = get_largest_cc(self.image)
+
+
+def prep_image(image_path=None, output_ff=None, 
+                       clip_intensity_values=None, target_spacing=None,
+                       fixed_size_pad=None, threshold=False, largest_cc=False,
+                       register=True, transformation='QuickRigid',
+                       random_blank_patch=False, img_is_binary=False,
+                       atlas_path=None, img_interp='nearestNeighbor'):
+
+    pp = Preprocessor(save_path=output_ff, image_path=image_path, is_binary=img_is_binary)
+    pp.register_antspy(atlas_path, True, transformation, register, img_interp)
+    pp.keep_largest_cc(largest_cc)
+    if not pp.save_path:
+        return pp.image 
+    else:
+        pp.save_file()
+
+
+def prep_img_autoimpl(input_ff,  n, zone, overwrite=False):
+    skulls = glob.glob(f"{input_ff}/*.nrrd")
+    cases1 = sorted([os.path.basename(s).split(".")[0] for s in random.sample(skulls, n)])
+    cases2 = copy.copy(cases1)
+    for i, case1 in enumerate(cases1):
+        for case2 in cases2[(i+1):]:
+            for name in (f"defective_skull/{zone}", f"implant/{zone}", "complete_skull"):  
+                  fixed = f'./trainset2021/{name}/{case1}.nrrd'
+                  moving = f'./trainset2021/{name}/{case2}.nrrd'
+                  output_ff = f'./trainset2021/{name}/{case2}_to_{case1}.nrrd'
+                  prep_image(image_path = moving, output_ff = output_ff, 
+                           clip_intensity_values = None, target_spacing = None,
+                           fixed_size_pad = None, threshold = False, largest_cc = True, register = True,
+                           transformation = 'QuickRigid', random_blank_patch = False, img_is_binary=False, atlas_path = fixed, img_interp = 'nearestNeighbor')
 
 
 if __name__ == '__main__':
-    folder = './trainset2021/complete_skull'
-    add_defect2folder(folder, num_defects=1)
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--n_triplets', dest='n_triplets', type=int)
+    parser.add_argument('--zone', dest='zone', type=str)
+
+    args = parser.parse_args()
+    prep_img_autoimpl('./trainset2021/complete_skull', args.n_triplets, args.zone, overwrite=False)

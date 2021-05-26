@@ -172,9 +172,9 @@ def add_cub_defect(img_path, size,ext='.nrrd'):
 		_, file = os.path.split(img_path)
 
 		def_sk_path = os.path.join(os.path.dirname(os.path.dirname(img_path)), 'defective_skull', 'cubic',
-                               file.replace(ext, '_d' + ext)) # saving defective skull
+                               file) # saving defective skull
 		implant_path = os.path.join(os.path.dirname(os.path.dirname(img_path)), 'implant', 'cubic',
-                                file.replace(ext, '_i' + ext)) # saving implant 
+                                file) # saving implant 
 		os.makedirs(os.path.join(os.path.dirname(os.path.dirname(img_path)), 'defective_skull',  'cubic'), exist_ok=True)
 		os.makedirs(os.path.join(os.path.dirname(os.path.dirname(img_path)), 'implant',  'cubic'), exist_ok=True)
   
@@ -222,9 +222,12 @@ def add_sph_defect(img_path, r1_mean=70, r1_sdev=20, r2_mean=40, r2_sdev=10,
         implant = sitk.GetImageFromArray(implant)
         skull.CopyInformation(sitk_img)
         implant.CopyInformation(sitk_img)
-
-        sitk.WriteImage(skull, def_sk_path.replace('_d', f'_d{i}'))
-        sitk.WriteImage(implant, implant_path.replace('_i', f'_i{i}'))
+        if i == 0:
+              sitk.WriteImage(skull, def_sk_path.replace('_d', ''))
+              sitk.WriteImage(implant, implant_path.replace('_i', ''))
+        else:
+              sitk.WriteImage(skull, def_sk_path.replace('_d', f'{i}'))
+              sitk.WriteImage(implant, implant_path.replace('_i', f'{i}'))
 
 
 def get_num(a, b, x):
