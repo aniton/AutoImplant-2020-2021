@@ -4,9 +4,9 @@ import torch.nn as nn
 import torch.nn.functional as F
 
 
-class ResBlock3d(nn.Module):
+class PreActResBlock3d(nn.Module):
     def __init__(self, channels, kernels=3):
-        super(ResBlock3d, self).__init__()
+        super(PreActResBlock3d, self).__init__()
         if type(kernels) is int:
             kernels = [kernels] * (len(channels)-1)
         assert len(kernels) == (len(channels)-1)
@@ -14,13 +14,14 @@ class ResBlock3d(nn.Module):
         for i, c in enumerate(channels):
             if i+1 == len(channels):
                 break
+            self.block.add_module(f'bn{i}', nn.BatchNorm3d(channels[i]))
+            self.block.add_module(f'act{i}', nn.ReLU(inplace=False))
             self.block.add_module(f'conv{i}', 
                                   nn.Conv3d(c, channels[i+1], 
                                             kernels[i], stride=1,
                                             padding=kernels[i]//2,
                                             bias=False))
-            self.block.add_module(f'bn{i}', nn.BatchNorm3d(channels[i+1]))
-            self.block.add_module(f'act{i}', nn.ReLU(inplace=False))
+            
         self.skip_conv = nn.Conv3d(channels[0], channels[-1], kernel_size=1)
     
     def forward(self, x):
@@ -42,19 +43,19 @@ class UNet3d_thin(nn.Module):
     def __init__(self, ):
         super(UNet3d_thin, self).__init__()
 
-        self.conv1 = ResBlock3d(channels=[1, 16, 32], kernels=[3, 3])
-        self.conv2 = ResBlock3d(channels=[32, 48, 64], kernels=[3, 3])
-        self.conv3 = ResBlock3d(channels=[64, 96, 128], kernels=[3, 3])
+        self.conv1 = PreActResBlock3d(channels=[1, 16, 32], kernels=[3, 3])
+        self.conv2 = PreActResBlock3d(channels=[32, 48, 64], kernels=[3, 3])
+        self.conv3 = PreActResBlock3d(channels=[64, 96, 128], kernels=[3, 3])
         
         self.down1 = nn.Conv3d(32, 32, kernel_size=1, stride=2)
         self.down2 = nn.Conv3d(64, 64, kernel_size=1, stride=2)
         self.down3 = nn.Conv3d(128, 128, kernel_size=1, stride=2)
         
-        self.bottleneck = ResBlock3d(channels=[128, 256], kernels=3)
+        self.bottleneck = PreActResBlock3d(channels=[128, 256], kernels=3)
         
-        self.deconv1 = ResBlock3d(channels=[64, 32], kernels=3)
-        self.deconv2 = ResBlock3d(channels=[128, 64], kernels=3)
-        self.deconv3 = ResBlock3d(channels=[256, 128], kernels=3)
+        self.deconv1 = PreActResBlock3d(channels=[64, 32], kernels=3)
+        self.deconv2 = PreActResBlock3d(channels=[128, 64], kernels=3)
+        self.deconv3 = PreActResBlock3d(channels=[256, 128], kernels=3)
         
         self.up3 = upsample(256, 128)
         self.up2 = upsample(128, 64)
