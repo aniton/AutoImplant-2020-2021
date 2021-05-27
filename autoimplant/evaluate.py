@@ -13,7 +13,7 @@ def evaluate(exp_name, dataloader, exp_dir, th=.5):
 
     for idx, (complete_skull, defective_skull, complete_region, _) in tqdm(zip(dataloader.dataset.ids, dataloader)):
         reconstructed = load(exp_dir / 'test_predictions' / '{:03d}.npy.gz'.format(idx))[0] > th
-        complete = complete_skull if exp_name == 'model_x8' else complete_region
+        complete = complete_skull if 'model_x8' in exp_name else complete_region
         complete = complete[0][0].numpy()
         defective = defective_skull[0][0].numpy()
 

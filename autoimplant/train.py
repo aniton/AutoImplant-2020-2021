@@ -1,3 +1,5 @@
+from tqdm import tqdm
+
 import numpy as np
 
 import torch
@@ -5,7 +7,6 @@ import torch.nn.functional as F
 from torch.utils.tensorboard import SummaryWriter
 
 from dpipe.im.metrics import dice_score
-from tqdm import tqdm
 
 
 def train(exp_name, num_epochs, dataloaders, model, optimizer, criterion, exp_dir, device='cuda'):
@@ -24,7 +25,7 @@ def train(exp_name, num_epochs, dataloaders, model, optimizer, criterion, exp_di
         torch.save(model.state_dict(), exp_dir / f'{exp_name}.pth')
 
 
-def run_epoch(exp_name, dataloaders, model, optimizer, criterion, device):
+def run_epoch(exp_name, dataloaders, model, optimizer, criterion, device='cuda'):
     train_dataloader, val_dataloader = dataloaders
 
     train_loss = 0
