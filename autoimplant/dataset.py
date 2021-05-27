@@ -3,16 +3,17 @@ from pathlib import Path
 from typing import Union
 
 import numpy as np
-from dpipe.im import pad_to_divisible
-from dpipe.im.axes import axis_from_dim, broadcast_to_axis
+
 from torch.utils.data import Dataset
 
 import nrrd
 
 from skimage.morphology import opening
-from skimage.measure import label, regionprops, block_reduce
+from skimage.measure import label, regionprops
 
-from dpipe.im.box import mask2bounding_box, add_margin
+from dpipe.im import pad_to_shape
+from dpipe.im.axes import broadcast_to_axis
+from dpipe.im.box import mask2bounding_box, limit_box, get_centered_box
 
 PathLike = Union[Path, str]
 
@@ -25,29 +26,19 @@ class Autoimplant(Dataset):
         self.ids = ids
         self.complete_skulls, self.defective_skulls, self.complete_regions, self.defective_regions = [], [], [], []
 
-        zone = 'bilateral'  # TODO: add other defects; only bilateral for now
+        zone = 'bilateral'
 
         for idx in self.ids:
             complete_skull = nrrd.read(self.root / 'complete_skull' / '{:03d}.nrrd'.format(idx))[0]
             defective_skull = nrrd.read(self.root / 'defective_skull' / zone / '{:03d}.nrrd'.format(idx))[0]
             implant = nrrd.read(self.root / 'implant' / zone / '{:03d}.nrrd'.format(idx))[0]
 
-            box = add_margin(mask2bounding_box(implant), margin=(5, 5, 0))
+            center = mask2bounding_box(implant).sum(axis=0) // 2
+            box = limit_box(get_centered_box(center=center, box_size=np.array([384, 384, 320])), limit=(512, 512, 512))
             complete_region = complete_skull[tuple([slice(start, stop) for start, stop in zip(*box)])]
             defective_region = defective_skull[tuple([slice(start, stop) for start, stop in zip(*box)])]
 
-            # TODO: rewrite as transform
-            def _pad_to_divisible(x, axis=(-3, -2, -1), divisor=16, ratio=.5, padding_values=0):
-                local_axis = axis_from_dim(axis, x.ndim)
-                local_divisor, local_ratio = broadcast_to_axis(local_axis, divisor, ratio)
-                x = pad_to_divisible(x, local_divisor, local_axis, padding_values, local_ratio)
-                return x
-
-            complete_region, defective_region = map(_pad_to_divisible, (complete_region, defective_region))
-            # ###
-
-            complete_skull = block_reduce(complete_skull, block_size=(8, 8, 8), func=np.max)
-            defective_skull = block_reduce(defective_skull, block_size=(8, 8, 8), func=np.max)
+            complete_region, defective_region = map(self.pad_to_shape, (complete_region, defective_region))
 
             self.complete_skulls.append(complete_skull[None, :].astype('bool'))
             self.defective_skulls.append(defective_skull[None, :].astype('bool'))
@@ -60,6 +51,13 @@ class Autoimplant(Dataset):
 
     def __len__(self):
         return len(self.ids)
+
+    @staticmethod
+    def pad_to_shape(x, axis=(-3, -2, -1), shape=(384, 384, 320), padding_values=0, ratio=.5):
+        shape, ratio = broadcast_to_axis(axis, shape, ratio)
+
+        x = pad_to_shape(x, shape, axis, padding_values, ratio)
+        return x
 
 
 def cutImplantRegion(healthy_skull_predicted, corrupted_skull):

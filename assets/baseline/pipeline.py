@@ -18,7 +18,7 @@ torch.manual_seed(seed)
 torch.backends.cudnn.deterministic = True
 
 
-def pipeline(exp_name, exp_root, data_root, model, optimizer, batch_size, num_epochs, criterion):
+def pipeline(exp_name, exp_root, data_root, model, optimizer, num_epochs, criterion):
     exp_dir = exp_root / exp_name
     exp_dir.mkdir(exist_ok=True)
 
@@ -29,9 +29,9 @@ def pipeline(exp_name, exp_root, data_root, model, optimizer, batch_size, num_ep
     save(test_ids, exp_dir / 'test_ids.json')
 
     print('Initializing dataloaders...\n', flush=True)
-    train_dataloader = DataLoader(Autoimplant(root=data_root, ids=train_ids), batch_size=batch_size, shuffle=True)
-    val_dataloader = DataLoader(Autoimplant(root=data_root, ids=val_ids), batch_size=1, shuffle=False)
-    test_dataloader = DataLoader(Autoimplant(root=data_root, ids=test_ids), batch_size=1, shuffle=False)
+    train_dataloader = DataLoader(Autoimplant(data_root, train_ids), shuffle=True)
+    val_dataloader = DataLoader(Autoimplant(data_root, val_ids), shuffle=False)
+    test_dataloader = DataLoader(Autoimplant(data_root, test_ids), shuffle=False)
 
     print('Training the model...\n', flush=True)
     train(exp_name, num_epochs, (train_dataloader, val_dataloader), model, optimizer, criterion, exp_dir)

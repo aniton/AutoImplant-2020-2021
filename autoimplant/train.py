@@ -1,9 +1,12 @@
 import numpy as np
 
 import torch
+import torch.nn as nn
+import torch.nn.functional as F
 from torch.utils.tensorboard import SummaryWriter
 
 from dpipe.im.metrics import dice_score, hausdorff_distance
+from tqdm import tqdm
 
 
 def train(exp_name, num_epochs, dataloaders, model, optimizer, criterion, exp_dir, device='cuda'):
@@ -31,13 +34,14 @@ def run_epoch(exp_name, dataloaders, model, optimizer, criterion, device):
 
     model.train()
     with torch.set_grad_enabled(True):
-        for complete_skulls, _, complete_regions, _ in train_dataloader:
-            complete = complete_skulls if exp_name == 'model_x8' else complete_regions
+        for complete_skull, _, complete_region, _ in tqdm(train_dataloader):
+            complete = complete_skull if exp_name == 'model_x8' else complete_region
+
             complete = complete.float().to(device)
 
             reconstructed = model.forward(complete)
 
-            loss = criterion(reconstructed, complete)
+            loss = criterion(reconstructed, F.max_pool3d(complete, kernel_size=8))
 
             loss.backward()
             optimizer.step()
@@ -47,16 +51,17 @@ def run_epoch(exp_name, dataloaders, model, optimizer, criterion, device):
 
     model.eval()
     with torch.set_grad_enabled(False):
-        for complete_skull, defective_skull, complete_region, defective_region in val_dataloader:
+        for complete_skull, defective_skull, complete_region, defective_region in tqdm(val_dataloader):
             complete = complete_skull if exp_name == 'model_x8' else complete_region
             defective = defective_skull if exp_name == 'model_x8' else defective_region
 
             defective = defective.float().to(device)
 
             reconstructed = model(defective).detach().cpu().numpy() > .5
-            complete = complete.numpy()
+            complete = complete.bool().numpy()
 
             dice_scores.append(dice_score(reconstructed, complete))
-            hausdorff_distances.append(hausdorff_distance(reconstructed, complete))
 
+            # hausdorff_distances.append(hausdorff_distance(reconstructed, complete))
+            hausdorff_distances.append(100)
     return train_loss / len(train_dataloader), np.mean(dice_scores), np.mean(hausdorff_distances)
