@@ -1,4 +1,4 @@
-from typing_extensions import OrderedDict
+from collections import OrderedDict
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
@@ -6,7 +6,7 @@ import torch.nn.functional as F
 
 class ResBlock3d(nn.Module):
     def __init__(self, channels, kernels=3):
-        super().__init__(self)
+        super(ResBlock3d, self).__init__()
         if type(kernels) is int:
             kernels = [kernels] * (len(channels)-1)
         assert len(kernels) == (len(channels)-1)
@@ -35,9 +35,12 @@ def upsample(ch1, ch2):
         
 
 
-class FirstPlaceUNetThin(nn.Module):
+class UNet3d_thin(nn.Module):
+    '''
+    First place UNet with less layers
+    '''
     def __init__(self, ):
-        super().__init__()
+        super(UNet3d_thin, self).__init__()
 
         self.conv1 = ResBlock3d(channels=[1, 16, 32], kernels=[3, 3])
         self.conv2 = ResBlock3d(channels=[32, 48, 64], kernels=[3, 3])
@@ -53,9 +56,9 @@ class FirstPlaceUNetThin(nn.Module):
         self.deconv2 = ResBlock3d(channels=[128, 64], kernels=3)
         self.deconv3 = ResBlock3d(channels=[256, 128], kernels=3)
         
-        self.up1 = upsample(256, 128)
+        self.up3 = upsample(256, 128)
         self.up2 = upsample(128, 64)
-        self.up3 = upsample(64, 32)
+        self.up1 = upsample(64, 32)
         
         self.last_conv = nn.Conv3d(32, 1, kernel_size=1)
         
@@ -70,6 +73,7 @@ class FirstPlaceUNetThin(nn.Module):
         conv3 = self.conv3(self.down2(conv2))
         
         # Bottleneck
+        # import ipdb; ipdb.set_trace()
         dec3 = self.up3(self.bottleneck(self.down3(conv3)))
         
         # Decoder
