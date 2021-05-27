@@ -60,7 +60,8 @@ class SAUnet3d(nn.Module):
         self.num_classes = num_classes
         self.pool = nn.MaxPool3d(2, 2)
         self.encoder = generate_model(model_depth=121, 
-                                      n_input_channels=1)
+                                      n_input_channels=1,
+                                      conv1_t_stride=2)
         
         self.relu = nn.ReLU(inplace=True)
         self.sigmoid = nn.Sigmoid()
@@ -160,19 +161,19 @@ class SAUnet3d(nn.Module):
         conv3 = F.interpolate(conv3, scale_factor=2, mode='trilinear', align_corners=True)
         conv4 = F.interpolate(conv4, scale_factor=2, mode='trilinear', align_corners=True)
 
-        print(conv5.shape, conv4.shape, conv3.shape, conv2.shape, conv1.shape)
+        # print(conv5.shape, conv4.shape, conv3.shape, conv2.shape, conv1.shape)
         center = self.center(self.pool(conv5))
-        print(conv5.shape, center.shape)
+        # print(conv5.shape, center.shape)
         dec5, _ = self.dec5([center, conv5])
-        print(dec5.shape)
+        # print(dec5.shape)
         dec4, _ = self.dec4([dec5, conv4])
-        print(dec4.shape)
+        # print(dec4.shape)
         dec3, att = self.dec3([dec4, conv3])
-        print(dec3.shape, att.shape)
+        # print(dec3.shape, att.shape)
         dec2, _ = self.dec2([dec3, conv2])
-        print(dec2.shape)
+        # print(dec2.shape)
         dec1 = self.dec1(dec2)
-        print(dec1.shape, edge.shape)
+        # print(dec1.shape, edge.shape)
         dec0 = self.dec0(torch.cat([dec1, edge], dim=1))
 
         x_out = self.final(dec0)
