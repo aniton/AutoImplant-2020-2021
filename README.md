@@ -31,4 +31,4 @@ python ./data_generation/synthetic_defect_generator.py
 ```
 python ./data_generation/each_other_registration.py --n_triplets 10 --zone 'bilateral' 
 ```
-This script will generate 225 additional triplets (each registration takes ~ 3 min). Available zones are: 'bilateral', 'frontoorbital', 'parietotemporal', 'random_1' and 'random_2'.
+This script will generate 45 additional triplets (each registration takes ~ 3 min). Available zones are: 'bilateral', 'frontoorbital', 'parietotemporal', 'random_1' and 'random_2'.
