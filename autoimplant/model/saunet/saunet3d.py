@@ -160,7 +160,9 @@ class SAUnet3d(nn.Module):
         conv3 = F.interpolate(conv3, scale_factor=2, mode='trilinear', align_corners=True)
         conv4 = F.interpolate(conv4, scale_factor=2, mode='trilinear', align_corners=True)
 
+        print(conv5.shape, conv4.shape, conv3.shape, conv2.shape, conv1.shape)
         center = self.center(self.pool(conv5))
+        print(conv5.shape, center.shape)
         dec5, _ = self.dec5([center, conv5])
         dec4, _ = self.dec4([dec5, conv4])
         dec3, att = self.dec3([dec4, conv3])
