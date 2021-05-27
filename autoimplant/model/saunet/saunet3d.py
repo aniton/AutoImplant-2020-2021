@@ -59,7 +59,8 @@ class SAUnet3d(nn.Module):
         super(SAUnet3d, self).__init__()
         self.num_classes = num_classes
         self.pool = nn.MaxPool3d(2, 2)
-        self.encoder = generate_model(model_depth=121, n_input_channels=1)
+        self.encoder = generate_model(model_depth=121, 
+                                      n_input_channels=1)
         
         self.relu = nn.ReLU(inplace=True)
         self.sigmoid = nn.Sigmoid()
@@ -112,7 +113,6 @@ class SAUnet3d(nn.Module):
 
     def forward(self, x):
         x_size = x.size()
-        import ipdb; ipdb.set_trace()
         #Encoder
         conv1 = self.conv1(x)
         conv2 = self.conv2t(self.conv2(conv1))
