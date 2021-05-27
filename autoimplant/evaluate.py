@@ -11,11 +11,12 @@ from autoimplant.metrics import hd, hd95, dc, bdc
 def evaluate(exp_name, dataloader, exp_dir, th=.5):
     dice_scores, hausdorff_distances, hausdorff_distances95, border_dice_scores = {}, {}, {}, {}
 
-    for idx, (complete_skull, defective_skull, complete_region, _) in tqdm(zip(dataloader.dataset.ids, dataloader)):
+    for idx, (complete_skull, defective_skull, complete_region, defective_region) in tqdm(zip(dataloader.dataset.ids, dataloader)):
         reconstructed = load(exp_dir / 'test_predictions' / '{:03d}.npy.gz'.format(idx))[0] > th
-        complete = complete_skull if 'model_x8' in exp_name else complete_region
+        complete = complete_skull if 'ss' not in exp_name else complete_region
+        defective = defective_skull if 'ss' not in exp_name else defective_region
         complete = complete[0][0].numpy()
-        defective = defective_skull[0][0].numpy()
+        defective = defective[0][0].numpy()
 
         implant, generated_implant = complete & ~defective, reconstructed & ~defective
         box = mask2bounding_box(implant)

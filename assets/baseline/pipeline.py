@@ -22,14 +22,14 @@ def pipeline(exp_name, exp_root, data_root, model, optimizer, num_epochs, criter
     exp_dir = exp_root / exp_name
     exp_dir.mkdir(exist_ok=True)
 
-    n_samples = len(list((data_root / 'complete_skull').glob('*.nrrd')))
+    n_samples = 114  # len(list((data_root / 'complete_skull').glob('*.nrrd')))
     train_ids, val_ids, test_ids = train_val_test_split(np.arange(n_samples), val_size=10, n_splits=3)[0]
     save(train_ids, exp_dir / 'train_ids.json')
     save(val_ids, exp_dir / 'val_ids.json')
     save(test_ids, exp_dir / 'test_ids.json')
 
     print('Initializing dataloaders...\n', flush=True)
-    train_dataloader = DataLoader(Autoimplant(data_root, train_ids), shuffle=True)
+    train_dataloader = DataLoader(Autoimplant(data_root, train_ids), batch_size=2, shuffle=True)
     val_dataloader = DataLoader(Autoimplant(data_root, val_ids), shuffle=False)
     test_dataloader = DataLoader(Autoimplant(data_root, test_ids), shuffle=False)
 
