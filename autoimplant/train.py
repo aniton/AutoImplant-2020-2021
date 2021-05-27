@@ -1,11 +1,10 @@
 import numpy as np
 
 import torch
-import torch.nn as nn
 import torch.nn.functional as F
 from torch.utils.tensorboard import SummaryWriter
 
-from dpipe.im.metrics import dice_score, hausdorff_distance
+from dpipe.im.metrics import dice_score
 from tqdm import tqdm
 
 
@@ -17,11 +16,10 @@ def train(exp_name, num_epochs, dataloaders, model, optimizer, criterion, exp_di
     writer = SummaryWriter(logs_dir)
 
     for epoch in range(num_epochs):
-        loss, dice_score_, hausdorff_distance_ = run_epoch(exp_name, dataloaders, model, optimizer, criterion, device)
+        loss, dice_score_ = run_epoch(exp_name, dataloaders, model, optimizer, criterion, device)
 
         writer.add_scalar('loss/train', loss, epoch)
         writer.add_scalar('metrics/val/dice_score', dice_score_, epoch)
-        writer.add_scalar('metrics/val/hausdorff_distance', hausdorff_distance_, epoch)
 
         torch.save(model.state_dict(), exp_dir / f'{exp_name}.pth')
 
@@ -30,12 +28,12 @@ def run_epoch(exp_name, dataloaders, model, optimizer, criterion, device):
     train_dataloader, val_dataloader = dataloaders
 
     train_loss = 0
-    dice_scores, hausdorff_distances = [], []
+    dice_scores = []
 
     model.train()
     with torch.set_grad_enabled(True):
         for complete_skull, _, complete_region, _ in tqdm(train_dataloader):
-            complete = complete_skull if exp_name == 'model_x8' else complete_region
+            complete = complete_skull if 'model_x8' in exp_name else complete_region
 
             complete = complete.float().to(device)
 
@@ -52,8 +50,8 @@ def run_epoch(exp_name, dataloaders, model, optimizer, criterion, device):
     model.eval()
     with torch.set_grad_enabled(False):
         for complete_skull, defective_skull, complete_region, defective_region in tqdm(val_dataloader):
-            complete = complete_skull if exp_name == 'model_x8' else complete_region
-            defective = defective_skull if exp_name == 'model_x8' else defective_region
+            complete = complete_skull if 'model_x8' in exp_name else complete_region
+            defective = defective_skull if 'model_x8' in exp_name else defective_region
 
             defective = defective.float().to(device)
 
@@ -62,6 +60,4 @@ def run_epoch(exp_name, dataloaders, model, optimizer, criterion, device):
 
             dice_scores.append(dice_score(reconstructed, complete))
 
-            # hausdorff_distances.append(hausdorff_distance(reconstructed, complete))
-            hausdorff_distances.append(100)
-    return train_loss / len(train_dataloader), np.mean(dice_scores), np.mean(hausdorff_distances)
+    return train_loss / len(train_dataloader), np.mean(dice_scores)

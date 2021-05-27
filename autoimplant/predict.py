@@ -14,10 +14,10 @@ def predict(exp_name, dataloader, model, exp_dir, device='cuda'):
     model.eval()
     with torch.no_grad():
         for idx, (_, defective_skull, _, defective_region) in zip(dataloader.dataset.ids, dataloader):
-            defective = defective_skull if exp_name == 'model_x8' else defective_region
+            defective = defective_skull if 'model_x8' in exp_name else defective_region
 
             defective = defective.float().to(device)
 
-            reconstructed = model(defective).detach().cpu().numpy() > .5
+            reconstructed = model(defective).detach().cpu().squeeze(0).numpy()
 
             save(reconstructed, test_predictions_dir / '{:03d}.npy.gz'.format(idx), compression=1, timestamp=0)
