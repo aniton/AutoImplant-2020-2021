@@ -215,11 +215,11 @@ def prep_img_autoimpl(input_ff,  n, zone, overwrite=False):
     cases1 = sorted([os.path.basename(s).split(".")[0] for s in random.sample(skulls, n)])
     cases2 = copy.copy(cases1)
     for i, case1 in enumerate(cases1):
-        for case2 in cases2[(i+1):]:
+        for j, case2 in enumerate(cases2[(i+1):]):
             for name in (f"defective_skull/{zone}", f"implant/{zone}", "complete_skull"):  
                   fixed = f'./trainset2021/{name}/{case1}.nrrd'
                   moving = f'./trainset2021/{name}/{case2}.nrrd'
-                  output_ff = f'./trainset2021/{name}/{case2}_to_{case1}.nrrd'
+                  output_ff = f'./trainset2021/{name}/{j+114}.nrrd'
                   prep_image(image_path = moving, output_ff = output_ff, 
                            clip_intensity_values = None, target_spacing = None,
                            fixed_size_pad = None, threshold = False, largest_cc = True, register = True,
