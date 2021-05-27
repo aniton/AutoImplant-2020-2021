@@ -33,14 +33,17 @@ def run_epoch(exp_name, dataloaders, model, optimizer, criterion, device='cuda')
 
     model.train()
     with torch.set_grad_enabled(True):
-        for complete_skull, _, complete_region, _ in tqdm(train_dataloader):
-            complete = complete_skull if 'model_x8' in exp_name else complete_region
+        for complete_skull, defective_skull, complete_region, defective_region in tqdm(train_dataloader):
+            complete = complete_skull if 'ss' not in exp_name else complete_region
+            defective = defective_skull if 'ss' not in exp_name else defective_region
 
             complete = complete.float().to(device)
+            defective = defective.float().to(device)
 
-            reconstructed = model.forward(complete)
+            # reconstructed = model.forward(complete)
+            reconstructed = model.forward(defective)
 
-            loss = criterion(reconstructed, F.max_pool3d(complete, kernel_size=8))
+            loss = criterion(reconstructed, F.max_pool3d(complete, kernel_size=4))
 
             loss.backward()
             optimizer.step()
@@ -51,8 +54,8 @@ def run_epoch(exp_name, dataloaders, model, optimizer, criterion, device='cuda')
     model.eval()
     with torch.set_grad_enabled(False):
         for complete_skull, defective_skull, complete_region, defective_region in tqdm(val_dataloader):
-            complete = complete_skull if 'model_x8' in exp_name else complete_region
-            defective = defective_skull if 'model_x8' in exp_name else defective_region
+            complete = complete_skull  # if 'model_x8' in exp_name else complete_region
+            defective = defective_skull  # if 'model_x8' in exp_name else defective_region
 
             defective = defective.float().to(device)
 

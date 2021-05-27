@@ -14,7 +14,7 @@ def predict(exp_name, dataloader, model, exp_dir, device='cuda'):
     model.eval()
     with torch.no_grad():
         for idx, (_, defective_skull, _, defective_region) in zip(dataloader.dataset.ids, dataloader):
-            defective = defective_skull if 'model_x8' in exp_name else defective_region
+            defective = defective_skull if 'ss' not in exp_name else defective_region
 
             defective = defective.float().to(device)
 
