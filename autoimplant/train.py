@@ -1,3 +1,4 @@
+from torch.optim.lr_scheduler import MultiStepLR
 from tqdm import tqdm
 
 import numpy as np
@@ -10,6 +11,8 @@ from dpipe.im.metrics import dice_score
 
 
 def train(exp_name, num_epochs, dataloaders, model, optimizer, criterion, exp_dir, device='cuda'):
+    # scheduler = MultiStepLR(optimizer, milestones=(10,), gamma=.2)
+
     model.to(device)
 
     logs_dir = exp_dir / 'logs'
@@ -23,6 +26,7 @@ def train(exp_name, num_epochs, dataloaders, model, optimizer, criterion, exp_di
         writer.add_scalar('metrics/val/dice_score', dice_score_, epoch)
 
         torch.save(model.state_dict(), exp_dir / f'{exp_name}.pth')
+        # scheduler.step()
 
 
 def run_epoch(exp_name, dataloaders, model, optimizer, criterion, device='cuda'):
@@ -43,7 +47,7 @@ def run_epoch(exp_name, dataloaders, model, optimizer, criterion, device='cuda')
             # reconstructed = model.forward(complete)
             reconstructed = model.forward(defective)
 
-            loss = criterion(reconstructed, F.max_pool3d(complete, kernel_size=4))
+            loss = criterion(reconstructed, F.max_pool3d(complete, kernel_size=8))
 
             loss.backward()
             optimizer.step()
@@ -54,8 +58,8 @@ def run_epoch(exp_name, dataloaders, model, optimizer, criterion, device='cuda')
     model.eval()
     with torch.set_grad_enabled(False):
         for complete_skull, defective_skull, complete_region, defective_region in tqdm(val_dataloader):
-            complete = complete_skull  # if 'model_x8' in exp_name else complete_region
-            defective = defective_skull  # if 'model_x8' in exp_name else defective_region
+            complete = complete_skull if 'ss' not in exp_name else complete_region
+            defective = defective_skull if 'ss' not in exp_name else defective_region
 
             defective = defective.float().to(device)
 

@@ -22,7 +22,7 @@ def pipeline(exp_name, exp_root, data_root, model, optimizer, num_epochs, criter
     exp_dir = exp_root / exp_name
     exp_dir.mkdir(exist_ok=True)
 
-    n_samples = 114  # len(list((data_root / 'complete_skull').glob('*.nrrd')))
+    len(list((data_root / 'complete_skull').glob('*.nrrd')))
     train_ids, val_ids, test_ids = train_val_test_split(np.arange(n_samples), val_size=10, n_splits=3)[0]
     save(train_ids, exp_dir / 'train_ids.json')
     save(val_ids, exp_dir / 'val_ids.json')

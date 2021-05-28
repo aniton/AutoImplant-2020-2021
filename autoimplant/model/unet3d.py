@@ -123,6 +123,7 @@ class UNet3d_thick(nn.Module):
         
 
     def forward(self, x):
+        x = F.max_pool3d(x, kernel_size=4)
         
         # Encoder
         conv1 = self.conv1(x) 
@@ -139,5 +140,8 @@ class UNet3d_thick(nn.Module):
         x = self.up2(self.deconv3(torch.cat([x, conv3], dim=1))) # dec2
         x = self.up1(self.deconv2(torch.cat([x, conv2], dim=1))) # dec1
         x = self.sigmoid(self.last_conv(self.deconv1(torch.cat([x, conv1], dim=1))))
+
+        if not self.training:
+            x = F.upsample(x, scale_factor=4, mode='trilinear', align_corners=False)
         
         return x

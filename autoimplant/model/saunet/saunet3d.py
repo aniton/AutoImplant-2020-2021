@@ -11,10 +11,10 @@ from resnets_3d.models.resnet import BasicBlock as ResBlock
 
 def conv3x3_bn_relu(in_planes, out_planes, stride=1):
     return nn.Sequential(
-            nn.Conv3d(in_planes, out_planes, kernel_size=3, stride=stride, padding=1),
-            nn.BatchNorm3d(out_planes),
-            nn.ReLU(inplace=True)
-            )
+        nn.Conv3d(in_planes, out_planes, kernel_size=3, stride=stride, padding=1),
+        nn.BatchNorm3d(out_planes),
+        nn.ReLU(inplace=True)
+    )
 
 
 class DecoderBlock3d(nn.Module):
@@ -52,23 +52,24 @@ class DecoderBlock3d(nn.Module):
 
 
 class SAUnet3d(nn.Module):
-    def __init__(self, num_classes=2, 
-                 num_filters=32, 
-                 pretrained=True, 
+    def __init__(self, num_classes=1,
+                 num_filters=32,
+                 pretrained=True,
                  is_deconv=True):
         super(SAUnet3d, self).__init__()
         self.num_classes = num_classes
         self.pool = nn.MaxPool3d(2, 2)
-        self.encoder = generate_model(model_depth=121, 
-                                      n_input_channels=1)
-        
+        self.encoder = generate_model(model_depth=121,
+                                      n_input_channels=1,
+                                      conv1_t_stride=2)
+
         self.relu = nn.ReLU(inplace=True)
         self.sigmoid = nn.Sigmoid()
         # Shape stream
         self.c3 = nn.Conv3d(256, 1, kernel_size=1)
         self.c4 = nn.Conv3d(512, 1, kernel_size=1)
         self.c5 = nn.Conv3d(1024, 1, kernel_size=1)
-        
+
         self.d0 = nn.Conv3d(128, 64, kernel_size=1)
         self.res1 = ResBlock(64, 64)
         self.d1 = nn.Conv3d(64, 32, kernel_size=1)
@@ -88,7 +89,7 @@ class SAUnet3d(nn.Module):
                                     nn.BatchNorm3d(num_filters),
                                     nn.ReLU(inplace=True))
 
-        #Encoder
+        # Encoder
         self.conv1 = nn.Sequential(self.encoder.features.conv1,
                                    self.encoder.features.norm1)
         self.conv2 = self.encoder.features.denseblock1
@@ -99,43 +100,44 @@ class SAUnet3d(nn.Module):
         self.conv4t = self.encoder.features.transition3
         self.conv5 = nn.Sequential(self.encoder.features.denseblock4,
                                    self.encoder.features.norm5)
-        
-        #Decoder
+
+        # Decoder
         self.center = conv3x3_bn_relu(1024, num_filters * 8 * 2)
         self.dec5 = DualAttBlock3d(inchannels=[512, 1024], outchannels=512)
         self.dec4 = DualAttBlock3d(inchannels=[512, 512], outchannels=256)
         self.dec3 = DualAttBlock3d(inchannels=[256, 256], outchannels=128)
-        self.dec2 = DualAttBlock3d(inchannels=[128,  128], outchannels=64)
+        self.dec2 = DualAttBlock3d(inchannels=[128, 128], outchannels=64)
         self.dec1 = DecoderBlock3d(64, 48, num_filters, is_deconv)
-        self.dec0 = conv3x3_bn_relu(num_filters*2, num_filters)
+        self.dec0 = conv3x3_bn_relu(num_filters * 2, num_filters)
 
         self.final = nn.Conv3d(num_filters, self.num_classes, kernel_size=1)
 
     def forward(self, x):
+        x = F.max_pool3d(x, kernel_size=8)
         x_size = x.size()
-        #Encoder
+        # Encoder
         conv1 = self.conv1(x)
         conv2 = self.conv2t(self.conv2(conv1))
         conv3 = self.conv3t(self.conv3(conv2))
         conv4 = self.conv4t(self.conv4(conv3))
         conv5 = self.conv5(conv4)
-        #Shape Stream
+        # Shape Stream
         ss = F.interpolate(self.d0(conv2), x_size[2:],
-                            mode='trilinear', align_corners=True)
+                           mode='trilinear', align_corners=True)
         ss = self.res1(ss)
         c3 = F.interpolate(self.c3(conv3), x_size[2:],
-                            mode='trilinear', align_corners=True)
+                           mode='trilinear', align_corners=True)
         ss = self.d1(ss)
         ss = self.gate1(ss, c3)
         ss = self.res2(ss)
         ss = self.d2(ss)
         c4 = F.interpolate(self.c4(conv4), x_size[2:],
-                            mode='trilinear', align_corners=True)
+                           mode='trilinear', align_corners=True)
         ss = self.gate2(ss, c4)
         ss = self.res3(ss)
         ss = self.d3(ss)
         c5 = F.interpolate(self.c5(conv5), x_size[2:],
-                            mode='trilinear', align_corners=True)
+                           mode='trilinear', align_corners=True)
         ss = self.gate3(ss, c5)
         ss = self.fuse(ss)
         ss = F.interpolate(ss, x_size[2:], mode='trilinear', align_corners=True)
@@ -155,14 +157,12 @@ class SAUnet3d(nn.Module):
         acts = self.sigmoid(acts)
         edge = self.expand(acts)
 
-        #Decoder
+        # Decoder
         conv2 = F.interpolate(conv2, scale_factor=2, mode='trilinear', align_corners=True)
         conv3 = F.interpolate(conv3, scale_factor=2, mode='trilinear', align_corners=True)
         conv4 = F.interpolate(conv4, scale_factor=2, mode='trilinear', align_corners=True)
 
-        print(conv5.shape, conv4.shape, conv3.shape, conv2.shape, conv1.shape)
         center = self.center(self.pool(conv5))
-        print(conv5.shape, center.shape)
         dec5, _ = self.dec5([center, conv5])
         dec4, _ = self.dec4([dec5, conv4])
         dec3, att = self.dec3([dec4, conv3])
@@ -174,14 +174,16 @@ class SAUnet3d(nn.Module):
 
         att = F.interpolate(att, scale_factor=4, mode='trilinear', align_corners=True)
 
-        return x_out, edge_out #, att
+        x_out = self.sigmoid(x_out)
+
+        if not self.training:
+            x_out = F.upsample(x_out, scale_factor=8, mode='trilinear', align_corners=False)
+
+        return x_out  # , edge_out #, att
 
     def pad(self, x, y):
         diffX = y.shape[3] - x.shape[3]
         diffY = y.shape[2] - x.shape[2]
 
-        return nn.functional.pad(x, (diffX // 2, diffX - diffX//2,
-                                        diffY // 2, diffY - diffY //2))
-
-        
-        
+        return nn.functional.pad(x, (diffX // 2, diffX - diffX // 2,
+                                     diffY // 2, diffY - diffY // 2))
