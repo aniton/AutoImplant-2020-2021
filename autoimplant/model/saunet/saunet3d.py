@@ -164,13 +164,19 @@ class SAUnet3d(nn.Module):
 
         center = self.center(self.pool(conv5))
         dec5, _ = self.dec5([center, conv5])
+        # print(dec5.shape)
         dec4, _ = self.dec4([dec5, conv4])
+        # print(dec4.shape)
         dec3, att = self.dec3([dec4, conv3])
+        # print(dec3.shape, att.shape)
         dec2, _ = self.dec2([dec3, conv2])
+        # print(dec2.shape)
         dec1 = self.dec1(dec2)
+        # print(dec1.shape, edge.shape)
         dec0 = self.dec0(torch.cat([dec1, edge], dim=1))
 
         x_out = self.final(dec0)
+        x_out = self.sigmoid(x_out)
 
         att = F.interpolate(att, scale_factor=4, mode='trilinear', align_corners=True)
 
