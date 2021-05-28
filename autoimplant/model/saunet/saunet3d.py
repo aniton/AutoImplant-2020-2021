@@ -52,7 +52,7 @@ class DecoderBlock3d(nn.Module):
 
 
 class SAUnet3d(nn.Module):
-    def __init__(self, num_classes=2, 
+    def __init__(self, num_classes=1, 
                  num_filters=32, 
                  pretrained=True, 
                  is_deconv=True):
@@ -177,9 +177,10 @@ class SAUnet3d(nn.Module):
         dec0 = self.dec0(torch.cat([dec1, edge], dim=1))
 
         x_out = self.final(dec0)
+        x_out = self.sigmoid(x_out)
 
         att = F.interpolate(att, scale_factor=4, mode='trilinear', align_corners=True)
-
+        
         return x_out, edge_out #, att
 
     def pad(self, x, y):

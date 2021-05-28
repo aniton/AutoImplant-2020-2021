@@ -90,7 +90,7 @@ class UNet3d_thin(nn.Module):
 
 class UNet3d_thick(nn.Module):
     '''
-    First place UNet with less layers
+    First place UNet with full depth
     '''
     def __init__(self, ):
         super(UNet3d_thick, self).__init__()
